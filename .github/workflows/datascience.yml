@@ -1,11 +1,6 @@
 name: Datascience Image CI
 
-on:
-  push:
-    branches: [ "main" ]
-    tags: ["*"]
-  pull_request:
-    branches: [ "main" ]
+on: # Only manual runs because the idea is to have multiple images and choose what to build.
   workflow_dispatch:
     inputs:
       image:
@@ -40,7 +35,7 @@ jobs:
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     
     - name: Build the Docker image
-      run: docker build . --file Dockerfile ${{ github.event.inputs.image }} --tag ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image }}:${{ env.TAG }}
+      run: docker build . --file ${{ github.event.inputs.image }} --tag ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image }}:${{ env.TAG }}
 
     - name: Push Docker Image
       run: |
