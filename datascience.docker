@@ -40,7 +40,7 @@ else \
 fi
 
 RUN uv add --dev ipykernel uv && \
-    uv add pandas numpy seaborn plotly \
+    uv add pandas numpy seaborn plotly bokeh \
            torch scikit-learn \
            dask dask-kubernetes distributed dask-cloudprovider \
            pyarrow s3fs \
