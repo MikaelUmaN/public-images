@@ -9,7 +9,7 @@ ARG USE_TORCH_GPU=false
 RUN apt update && apt install -y sudo htop wget curl lsof \
   iputils-ping iproute2 vim \
   libnss3 \
-  libtiff5-dev && \
+  libtiff5-dev graphviz && \
   apt clean
 
 RUN usermod -aG sudo $USER && \
@@ -40,9 +40,10 @@ else \
 fi
 
 RUN uv add --dev ipykernel uv && \
-    uv add pandas numpy seaborn plotly bokeh \
+    uv add pandas numpy seaborn plotly \
            torch scikit-learn \
-           dask dask-kubernetes distributed dask-cloudprovider \
+           dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
+           bokeh graphviz \
            pyarrow s3fs \
            ipywidgets
 
