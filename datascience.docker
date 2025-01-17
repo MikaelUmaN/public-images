@@ -1,0 +1,52 @@
+FROM ubuntu:noble
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV USER=ubuntu
+ENV HOME=/home/$USER
+
+ARG USE_TORCH_GPU=false
+
+RUN apt update && apt install -y sudo htop wget curl lsof \
+  iputils-ping iproute2 vim \
+  libnss3 \
+  libtiff5-dev && \
+  apt clean
+
+RUN usermod -aG sudo $USER && \
+    echo "${USER}  ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/${USER}
+
+USER $USER
+
+# uv by default uses user's home folder, e.g. /home/user/.local/share/uv/...
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="$HOME/.local/bin:$PATH"
+RUN uv python install 3.13
+
+WORKDIR /app
+
+RUN uv init --app --description "datascience" && \
+    uv tool install ruff && \
+    uv tool install mypy && \
+    uv tool install jupyterlab
+
+# CUDA libraries are significantly more disk intensive then the CPU-only version.
+# We allow for both, defaulting to CPU-only.
+COPY pytorch.toml /app/pytorch.toml
+RUN if [ "$USE_TORCH_GPU" = "false" ]; then \
+    cat pytorch.toml >> pyproject.toml && \
+    rm pytorch.toml; \
+else \
+    rm pytorch.toml; \
+fi
+
+RUN uv add --dev ipykernel uv && \
+    uv add pandas numpy seaborn plotly \
+           torch scikit-learn \
+           dask dask-kubernetes distributed dask-cloudprovider \
+           pyarrow s3fs \
+           ipywidgets
+
+# Jupyter kernel to work with the venv from within jupyterlab.
+RUN uv run ipython kernel install --user --name=app
+CMD ["uv", "run", "--with", "jupyter", "jupyter-lab"]
+
