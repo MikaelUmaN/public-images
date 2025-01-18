@@ -39,15 +39,13 @@ else \
     rm pytorch.toml; \
 fi
 
-RUN uv add --dev ipykernel uv && \
+RUN uv add --dev ipykernel && \
     uv add pandas numpy seaborn plotly \
            torch scikit-learn \
            dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
            bokeh graphviz \
-           pyarrow s3fs \
+           tables h5py pyarrow s3fs \
            ipywidgets
 
-# Jupyter kernel to work with the venv from within jupyterlab.
-RUN uv run ipython kernel install --user --name=app
-CMD ["uv", "run", "--with", "jupyter", "jupyter-lab"]
+CMD ["uv", "run", "--with", "jupyter", "--with", "plotly", "jupyter", "lab"]
 
