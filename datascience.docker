@@ -45,7 +45,8 @@ RUN uv add --dev ipykernel && \
            dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
            bokeh graphviz \
            tables h5py pyarrow s3fs \
-           ipywidgets
+           ipywidgets \
+           tqdm
 
 CMD ["uv", "run", "--with", "jupyter", "--with", "plotly", "jupyter", "lab"]
 
