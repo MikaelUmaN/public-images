@@ -41,7 +41,7 @@ fi
 
 RUN uv add --dev ipykernel && \
     uv add pandas numpy seaborn plotly \
-           torch scikit-learn \
+           torch scikit-learn statsmodels \
            dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
            bokeh graphviz \
            tables h5py pyarrow s3fs \
