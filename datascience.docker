@@ -6,7 +6,7 @@ ENV HOME=/home/$USER
 
 ARG USE_TORCH_GPU=false
 
-RUN apt update && apt install -y sudo htop wget curl lsof \
+RUN apt update && apt install -y sudo htop wget curl lsof git \
   iputils-ping iproute2 vim \
   libnss3 \
   libtiff5-dev graphviz && \
