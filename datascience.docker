@@ -6,7 +6,7 @@ ENV HOME=/home/$USER
 
 ARG USE_TORCH_GPU=false
 
-RUN apt update && apt install -y sudo htop wget curl lsof git \
+RUN apt update && apt install -y sudo htop wget curl lsof git unzip \
   iputils-ping iproute2 vim \
   libnss3 \
   libtiff5-dev graphviz && \
@@ -21,6 +21,9 @@ USER $USER
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="$HOME/.local/bin:$PATH"
 RUN uv python install 3.13
+
+# js.
+RUN curl -fsSL https://bun.sh/install | bash
 
 WORKDIR /app
 
