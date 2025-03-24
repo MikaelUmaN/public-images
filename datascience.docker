@@ -48,6 +48,7 @@ RUN uv add --dev ipykernel && \
            dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
            bokeh graphviz \
            tables h5py pyarrow s3fs \
+           fastapi \
            ipywidgets \
            tqdm
 
