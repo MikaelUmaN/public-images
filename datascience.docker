@@ -46,7 +46,7 @@ else \
     rm pytorch.toml; \
 fi
 
-RUN uv add --dev ipykernel && \
+RUN uv add --dev ipykernel types-cachetools && \
     uv add pandas numpy seaborn plotly \
            torch scikit-learn statsmodels \
            dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
@@ -54,7 +54,7 @@ RUN uv add --dev ipykernel && \
            tables h5py pyarrow s3fs \
            fastapi orjson \
            ipywidgets \
-           tqdm
+           tqdm cachetools
 
 CMD ["uv", "run", "--with", "jupyter", "--with", "plotly", "jupyter", "lab"]
 
