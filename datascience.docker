@@ -19,7 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl 
   build-essential \
   libtiff5-dev graphviz \
   libxss1 libx11-xcb1 libgtk-3-0 \
-  texlive-latex-extra && \
+  texlive-latex-extra texlive-luatex texlive-latex-recommended texlive-fonts-recommended texlive-fonts-extra fonts-lmodern fonts-texgyre && \
+  # refresh TeX filename DB and LuaTeX font cache so lualatex will find fonts/packages
+  mktexlsr && \
+  luaotfload-tool --update --force || true && \
+  fc-cache -f -v || true && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN usermod -aG sudo $USER && \
