@@ -1,4 +1,11 @@
-FROM ubuntu:noble
+FROM ubuntu:24.04
+
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETARCH
+
+RUN echo "I am running on ${BUILDPLATFORM}, building for ${TARGETPLATFORM}"
+RUN if [ "$TARGETARCH" != "amd64" ]; then echo "This Dockerfile only supports amd64" >&2; exit 1; fi
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=ubuntu
@@ -6,30 +13,108 @@ ENV HOME=/home/$USER
 
 ARG USE_TORCH_GPU=false
 
-RUN apt update && apt install -y sudo htop wget curl lsof git unzip \
-  iputils-ping iproute2 vim \
-  libnss3 \
-  libtiff5-dev graphviz && \
-  apt clean
+RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop git vim unzip \
+  iputils-ping iproute2 lsof bind9-dnsutils bind9-host \
+  ca-certificates libnss3 gpg gpg-agent \
+  build-essential \
+  libtiff5-dev graphviz \
+  libxss1 libx11-xcb1 libgtk-3-0 \
+  texlive-latex-extra texlive-luatex texlive-latex-recommended texlive-fonts-recommended texlive-fonts-extra fonts-lmodern fonts-texgyre && \
+  # refresh TeX filename DB and LuaTeX font cache so lualatex will find fonts/packages
+  mktexlsr && \
+  luaotfload-tool --update --force || true && \
+  fc-cache -f -v || true && \
+  apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN usermod -aG sudo $USER && \
     echo "${USER}  ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/${USER}
 
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    sudo ./aws/install
+# ----------------------------------------------------------------------
+# AWS CLI v2 GPG verification (see AWS docs). We import the AWS CLI public key, verify the detached signature, then install.
+ARG AWS_CLI_VERSION=2.28.26
+COPY awscliv2-public-key.asc awscliv2-public-key.asc
+RUN set -eux; \
+    base="https://awscli.amazonaws.com"; \
+    file="awscli-exe-linux-x86_64-${AWS_CLI_VERSION}.zip"; \
+    sig="$file.sig"; \
+    curl -fsSL -o "$file" "$base/$file"; \
+    curl -fsSL -o "$sig"  "$base/$sig"; \
+    gpg --import awscliv2-public-key.asc; \
+    gpg --batch --verify "$sig" "$file"; \
+    unzip -q "$file"; \
+    ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli; \
+    aws --version; \
+    rm -rf aws "$file" "$sig" awscliv2-public-key.asc ~/.gnupg
+
+# ----------------------------------------------------------------------
+# Kubernetes CLI tooling (kubectl, k9s, helm) - pinned & checksum verified (linux/amd64 only)
+# Adjust versions via build args; architecture hardcoded for simplicity.
+ARG KUBECTL_VERSION=v1.34.1
+ARG K9S_VERSION=v0.50.12
+ARG HELM_VERSION=v3.19.0
+
+RUN set -eux; \
+    # kubectl (linux/amd64)
+    curl -fsSL -o /tmp/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"; \
+    curl -fsSL -o /tmp/kubectl.sha256 "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"; \
+    hash=$(cat /tmp/kubectl.sha256); \
+    printf '%s  %s\n' "$hash" /tmp/kubectl > /tmp/kubectl.sha256; \
+    sha256sum -c /tmp/kubectl.sha256; \
+    install -m 0755 /tmp/kubectl /usr/local/bin/kubectl; \
+    kubectl version --client --output=yaml || kubectl version --client; \
+    # k9s (linux/amd64)
+    file="k9s_Linux_amd64.tar.gz"; \
+    curl -fsSL -o /tmp/${file} "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/${file}"; \
+    curl -fsSL -o /tmp/k9s_checksums.sha256 "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/checksums.sha256"; \
+    awk -v want="${file}" -v path="/tmp/${file}" '$2==want {print $1 "  " path}' /tmp/k9s_checksums.sha256 | sha256sum -c -; \
+    tar -xzf /tmp/${file} -C /tmp k9s; \
+    install -m 0755 /tmp/k9s /usr/local/bin/k9s; \
+    k9s version || true; \
+    # helm (linux/amd64)
+    file="helm-${HELM_VERSION}-linux-amd64.tar.gz"; \
+    curl -fsSL -o /tmp/${file} "https://get.helm.sh/${file}"; \
+    curl -fsSL -o /tmp/helm.sha256 "https://get.helm.sh/${file}.sha256sum"; \
+    (cd /tmp && sha256sum -c helm.sha256); \
+    tar -xzf "/tmp/${file}" -C /tmp; \
+    install -m 0755 /tmp/linux-amd64/helm /usr/local/bin/helm; \
+    helm version --short; \
+    # cleanup
+    rm -rf /tmp/*
+
+# install duckdb CLI into /usr/local/bin (on PATH)
+ARG DUCKDB_VERSION=1.4.0
+ARG DUCKDB_ASSET="duckdb_cli-linux-amd64.gz"
+RUN set -eux; \
+    curl -fsSL -o /tmp/${DUCKDB_ASSET} "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/duckdb_cli-linux-amd64.gz"; \
+    gunzip -c /tmp/${DUCKDB_ASSET} > /usr/local/bin/duckdb; \
+    chmod 0755 /usr/local/bin/duckdb; \
+    /usr/local/bin/duckdb --version; \
+    rm -f /tmp/${DUCKDB_ASSET}
+
+LABEL org.opencontainers.image.awscli.version=${AWS_CLI_VERSION} \
+      org.opencontainers.image.kubectl.version=${KUBECTL_VERSION} \
+      org.opencontainers.image.k9s.version=${K9S_VERSION} \
+      org.opencontainers.image.helm.version=${HELM_VERSION} \
+      org.opencontainers.image.duckdb.version=${DUCKDB_VERSION}
+
+ENV UV_NATIVE_TLS=true
+# Eagerly compile Python to .pyc files, to speed up the first import.
+ENV UV_COMPILE_BYTECODE=1
+# Deep copy files to the virtual environment, to avoid issues with symlinks.
+ENV UV_LINK_MODE=copy
+# Only use specific python installation, not the system python.
+ENV UV_PYTHON_PREFERENCE=only-managed
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/bin" sh
+
+RUN chown -R $USER:$USER $HOME
 
 USER $USER
-
-# uv by default uses user's home folder, e.g. /home/user/.local/share/uv/...
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="$HOME/.local/bin:$PATH"
-RUN uv python install 3.13
 
 # js.
 RUN curl -fsSL https://bun.sh/install | bash
 
-WORKDIR /app
+RUN uv python install 3.13
+WORKDIR $HOME/jupyter
 
 RUN uv init --app --description "datascience" && \
     uv tool install ruff && \
@@ -38,7 +123,7 @@ RUN uv init --app --description "datascience" && \
 
 # CUDA libraries are significantly more disk intensive then the CPU-only version.
 # We allow for both, defaulting to CPU-only.
-COPY pytorch.toml /app/pytorch.toml
+COPY pytorch.toml pytorch.toml
 RUN if [ "$USE_TORCH_GPU" = "false" ]; then \
     cat pytorch.toml >> pyproject.toml && \
     rm pytorch.toml; \
@@ -47,14 +132,14 @@ else \
 fi
 
 RUN uv add --dev ipykernel types-cachetools && \
-    uv add pandas numpy seaborn plotly \
-           torch scikit-learn statsmodels \
+    uv add pandas numpy seaborn plotly duckdb[all] \
+           torch scikit-learn statsmodels pymc numba xgboost cvxopt osqp \
            dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
-           bokeh graphviz \
-           tables h5py pyarrow s3fs \
-           fastapi orjson \
+           bokeh graphviz kaleido \
+           tables h5py pyarrow s3fs aiobotocore \
+           fastapi orjson uvicorn aiofiles aiohttp \
+           openpyxl lxml \
            ipywidgets \
-           tqdm cachetools
+           tqdm cachetools marimo more-itertools retrying
 
 CMD ["uv", "run", "--with", "jupyter", "--with", "plotly", "jupyter", "lab"]
-
