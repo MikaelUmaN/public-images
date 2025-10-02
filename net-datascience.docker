@@ -31,7 +31,7 @@ RUN set -eux; \
     # ensure the interactive tool is usable and register kernels with Jupyter
     $TOOL_DIR/dotnet-interactive --version; \
     mkdir -p /usr/local/share/jupyter/kernels; \
-    # install kernels into the active Jupyter environment (sys-prefix makes them available inside your current env)
+    # install kernels into the active Jupyter environment.
     $TOOL_DIR/dotnet-interactive jupyter install --path /usr/local/share/jupyter/kernels;
 
 USER $USER
