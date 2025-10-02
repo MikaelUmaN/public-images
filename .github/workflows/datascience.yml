@@ -10,6 +10,7 @@ on: # Only manual runs because the idea is to have multiple images and choose wh
         options: 
         - datascience
         - net-datascience
+        - rust-datascience
 
 jobs:
 
