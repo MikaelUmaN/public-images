@@ -132,7 +132,7 @@ else \
 fi
 
 RUN uv add --dev ipykernel types-cachetools && \
-    uv add pandas numpy seaborn plotly duckdb[all] \
+    uv add pandas polars numpy seaborn plotly duckdb[all] \
            torch scikit-learn statsmodels pymc numba xgboost cvxopt osqp \
            dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
            bokeh graphviz kaleido \
@@ -140,6 +140,7 @@ RUN uv add --dev ipykernel types-cachetools && \
            fastapi orjson uvicorn aiofiles aiohttp \
            openpyxl lxml \
            ipywidgets \
-           tqdm cachetools marimo more-itertools retrying
+           tqdm cachetools marimo more-itertools retrying \
+           databento
 
 CMD ["uv", "run", "--with", "jupyter", "--with", "plotly", "jupyter", "lab"]
