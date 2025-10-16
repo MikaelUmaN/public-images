@@ -1,10 +1,6 @@
 FROM mikaeluman/datascience:latest
-USER root
 
-ARG RUST_TOOLCHAIN=stable
-ENV RUSTUP_HOME=/usr/local/rustup
-ENV CARGO_HOME=/usr/local/cargo
-ENV PATH=/usr/local/cargo/bin:/usr/local/bin:${PATH}
+USER root
 
 # deps needed to build crates
 RUN set -eux; \
@@ -14,24 +10,29 @@ RUN set -eux; \
       libssl-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev libsnappy-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# install rustup/toolchain into the *global* locations (RUSTUP_HOME/CARGO_HOME)
-RUN set -eux; \
-    # make sure the target dirs exist and are writable by root (installer runs as root)
-    mkdir -p "$RUSTUP_HOME" "$CARGO_HOME"; \
-    chown -R root:root "$RUSTUP_HOME" "$CARGO_HOME"; \
-    chmod -R 0755 "$RUSTUP_HOME" "$CARGO_HOME"; \
-    # run installer with the env vars visible to the sh process (use env before sh)
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-      env RUSTUP_HOME="$RUSTUP_HOME" CARGO_HOME="$CARGO_HOME" sh -s -- -y --profile minimal --default-toolchain "${RUST_TOOLCHAIN}"; \
-    # ensure binaries are available and usable
-    "$CARGO_HOME/bin/rustc" --version; \
-    "$CARGO_HOME/bin/cargo" --version; \
-    # make executables readable/executable by all users
-    chmod -R a+rX "$CARGO_HOME" "$RUSTUP_HOME"
+ENV CARGO_HOME=/home/$USER/.cargo \
+    RUSTUP_HOME=/home/$USER/.rustup \
+    PATH=/home/$USER/.cargo/bin:$PATH
 
-# install evcxr_jupyter via cargo but put the binary under /usr/local (system-wide)
-RUN set -eux; \
-    "$CARGO_HOME/bin/cargo" install --locked --root /usr/local evcxr_jupyter; \
-    env JUPYTER_PATH=/usr/local/share/jupyter evcxr_jupyter --install;
+RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
+    --mount=type=cache,target=/home/$USER/.cargo/git \
+    set -eux; \
+    mkdir -p /home/$USER/.cargo; \
+    chown -R $USER:$USER /home/$USER/.cargo; \
+    # run rustup installer as the ubuntu user so files are created with correct uid/gid
+    su - $USER -s /bin/sh -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable'
+
+USER $USER
+
+# Install evcxr_jupyter for the user
+RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
+    --mount=type=cache,target=/home/$USER/.cargo/git \
+    cargo install --locked evcxr_jupyter && \
+    JUPYTER_PATH=/home/$USER/.local/share/jupyter evcxr_jupyter --install
+
+# Copy only the kernel spec to a global Jupyter dir (needs root)
+USER root
+RUN mkdir -p /usr/local/share/jupyter/kernels && \
+    cp -r /home/$USER/.local/share/jupyter/kernels/* /usr/local/share/jupyter/kernels/
 
 USER $USER

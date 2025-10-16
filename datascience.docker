@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl 
   build-essential \
   libtiff5-dev graphviz \
   libxss1 libx11-xcb1 libgtk-3-0 \
-  texlive-latex-extra texlive-luatex texlive-latex-recommended texlive-fonts-recommended texlive-fonts-extra fonts-lmodern fonts-texgyre && \
+  texlive-latex-extra texlive-luatex texlive-latex-recommended texlive-xetex texlive-fonts-recommended texlive-fonts-extra fonts-lmodern fonts-texgyre && \
   # refresh TeX filename DB and LuaTeX font cache so lualatex will find fonts/packages
   mktexlsr && \
   luaotfload-tool --update --force || true && \
@@ -132,7 +132,7 @@ else \
 fi
 
 RUN uv add --dev ipykernel types-cachetools && \
-    uv add pandas numpy seaborn plotly duckdb[all] \
+    uv add pandas polars numpy seaborn plotly duckdb[all] \
            torch scikit-learn statsmodels pymc numba xgboost cvxopt osqp \
            dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
            bokeh graphviz kaleido \
@@ -140,6 +140,7 @@ RUN uv add --dev ipykernel types-cachetools && \
            fastapi orjson uvicorn aiofiles aiohttp \
            openpyxl lxml \
            ipywidgets \
-           tqdm cachetools marimo more-itertools retrying
+           tqdm cachetools marimo more-itertools retrying \
+           databento
 
 CMD ["uv", "run", "--with", "jupyter", "--with", "plotly", "jupyter", "lab"]
