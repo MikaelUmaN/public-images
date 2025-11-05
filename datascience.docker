@@ -133,7 +133,7 @@ fi
 
 RUN uv add --dev ipykernel types-cachetools && \
     uv add pandas polars numpy seaborn plotly duckdb[all] \
-           torch scikit-learn statsmodels pymc numba xgboost cvxopt osqp \
+           torch scikit-learn statsmodels pymc numba xgboost cvxpy osqp \
            dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
            bokeh graphviz kaleido \
            tables h5py pyarrow s3fs aiobotocore \
