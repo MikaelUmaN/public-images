@@ -30,6 +30,8 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     cargo install --locked evcxr_jupyter && \
     JUPYTER_PATH=/home/$USER/.local/share/jupyter evcxr_jupyter --install
 
+RUN rustup component add rustfmt clippy
+
 # Copy only the kernel spec to a global Jupyter dir (needs root)
 USER root
 RUN mkdir -p /usr/local/share/jupyter/kernels && \
