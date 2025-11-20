@@ -2,13 +2,30 @@ FROM mikaeluman/datascience:latest
 
 USER root
 
-# deps needed to build crates
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
       build-essential pkg-config cmake \
       libssl-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev libsnappy-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Duckdb pre-built library.
+RUN set -eux; \
+    DUCKDB_VERSION="v1.4.2"; \
+    curl -L "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-linux-amd64.zip" -o /tmp/libduckdb.zip; \
+    mkdir -p /opt/duckdb; \
+    unzip /tmp/libduckdb.zip -d /opt/duckdb; \
+    rm /tmp/libduckdb.zip; \
+    # files now in /opt/duckdb: libduckdb.so, libduckdb_static.a, duckdb.h, duckdb.hpp
+    cp /opt/duckdb/libduckdb.so /usr/local/lib/; \
+    mkdir -p /usr/local/include; \
+    cp /opt/duckdb/duckdb.h /usr/local/include/; \
+    cp /opt/duckdb/duckdb.hpp /usr/local/include/; \
+    ldconfig
+
+# Tell libduckdb-sys where to look (for the Rust crate)
+ENV DUCKDB_LIB_DIR=/usr/local/lib \
+    DUCKDB_INCLUDE_DIR=/usr/local/include
 
 ENV CARGO_HOME=/home/$USER/.cargo \
     RUSTUP_HOME=/home/$USER/.rustup \
