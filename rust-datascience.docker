@@ -1,6 +1,7 @@
 FROM mikaeluman/datascience:latest
 
 ARG CARGO_BUILD_JOBS=4
+ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
 
 USER root
 
@@ -41,6 +42,11 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     # run rustup installer as the ubuntu user so files are created with correct uid/gid
     su - $USER -s /bin/sh -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable'
 
+# Add config file with default crates and settings for evcxr.
+RUN mkdir -p /home/${USER}/.config/evcxr
+COPY init.evcxr /home/${USER}/.config/evcxr
+RUN chown -R $USER:$USER /home/$USER/.config/evcxr
+
 USER $USER
 
 # Install evcxr_jupyter for the user
@@ -51,17 +57,6 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
 
 RUN rustup component add rustfmt clippy rust-src
 RUN cargo install cargo-audit cargo-outdated cargo-watch cargo-deps cargo-tarpaulin
-
-# Add config file with default crates and settings for evcxr.
-RUN mkdir -p /home/${USER}/.config/evcxr
-COPY init.evcxr /home/${USER}/.config/evcxr
-
-# Pre-warm the evcxr cache by running evcxr_repl once during build
-RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
-    --mount=type=cache,target=/home/$USER/.cargo/git \
-    CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS} /home/$USER/.cargo/bin/evcxr << 'EOF'
-:echo "Pre-warming crates..."
-EOF
 
 # Copy only the kernel spec to a global Jupyter dir (needs root)
 USER root
