@@ -1,5 +1,7 @@
 FROM mikaeluman/datascience:latest
 
+ARG CARGO_BUILD_JOBS=4
+
 USER root
 
 RUN set -eux; \
@@ -44,11 +46,22 @@ USER $USER
 # Install evcxr_jupyter for the user
 RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     --mount=type=cache,target=/home/$USER/.cargo/git \
-    cargo install --locked evcxr_jupyter && \
+    cargo install --locked evcxr_jupyter evcxr_repl && \
     JUPYTER_PATH=/home/$USER/.local/share/jupyter evcxr_jupyter --install
 
-RUN rustup component add rustfmt clippy
+RUN rustup component add rustfmt clippy rust-src
 RUN cargo install cargo-audit cargo-outdated cargo-watch cargo-deps cargo-tarpaulin
+
+# Add config file with default crates and settings for evcxr.
+RUN mkdir -p /home/${USER}/.config/evcxr
+COPY init.evcxr /home/${USER}/.config/evcxr
+
+# Pre-warm the evcxr cache by running evcxr_repl once during build
+RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
+    --mount=type=cache,target=/home/$USER/.cargo/git \
+    CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS} /home/$USER/.cargo/bin/evcxr << 'EOF'
+:echo "Pre-warming crates..."
+EOF
 
 # Copy only the kernel spec to a global Jupyter dir (needs root)
 USER root

@@ -1,0 +1,8 @@
+:cache 1000
+:dep statrs = ">=0.16,<2"
+:dep chrono = { version = "0.4", features = ["serde"] }
+:dep approx = ">=0.5,<2"
+:dep rand = "0.8"
+:dep itertools = ">=0.12"
+:dep polars = { version = ">=0.52,<2", default-features = false, features = ["lazy", "timezones", "temporal", "csv", "parquet", "performant"] }
+:dep duckdb = { version = ">=1.4.2,<2", features = ["modern-full"] }
