@@ -44,7 +44,7 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
 
 # Add config file with default crates and settings for evcxr.
 RUN mkdir -p /home/${USER}/.config/evcxr
-COPY init.evcxr /home/${USER}/.config/evcxr
+COPY init.evcxr /home/${USER}/.config/evcxr/
 RUN chown -R $USER:$USER /home/$USER/.config/evcxr
 
 USER $USER
