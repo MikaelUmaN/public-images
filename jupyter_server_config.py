@@ -21,7 +21,7 @@ c.ServerApp.shutdown_no_activity_timeout = 0
 
 # --- Big output / data friendliness ---
 # Allow large WebSocket messages (big plots, dask dashboards, DataFrames)
-c.ServerApp.max_body_size = 0   # 0 = no explicit limit
+#c.ServerApp.max_body_size = 1073741824   # Default is 512MB
 
 # Optional: if reverse proxying, honor X-Forwarded-Proto/Host, etc.
 # c.ServerApp.trust_xheaders = True

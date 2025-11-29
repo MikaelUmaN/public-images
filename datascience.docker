@@ -145,7 +145,7 @@ RUN uv add --dev ipykernel types-cachetools && \
            tqdm cachetools marimo more-itertools retrying \
            databento
 
-# Jupyter server configuration and theming.
+# Jupyter server configuration.
 RUN mkdir -p $HOME/.jupyter
 COPY jupyter_server_config.py $HOME/.jupyter/
 
