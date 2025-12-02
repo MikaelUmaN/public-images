@@ -86,7 +86,7 @@ RUN set -eux; \
 ARG DUCKDB_VERSION=1.4.2
 ARG DUCKDB_ASSET="duckdb_cli-linux-amd64.gz"
 RUN set -eux; \
-    curl -fsSL -o /tmp/${DUCKDB_ASSET} "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/duckdb_cli-linux-amd64.gz"; \
+    curl -fsSL -o /tmp/${DUCKDB_ASSET} "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/${DUCKDB_ASSET}"; \
     gunzip -c /tmp/${DUCKDB_ASSET} > /usr/local/bin/duckdb; \
     chmod 0755 /usr/local/bin/duckdb; \
     /usr/local/bin/duckdb --version; \
