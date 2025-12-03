@@ -13,7 +13,7 @@ ENV HOME=/home/$USER
 
 ARG USE_TORCH_GPU=false
 
-RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop git vim unzip \
+RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop git openssh-client vim unzip \
   iputils-ping iproute2 lsof bind9-dnsutils bind9-host \
   ca-certificates libnss3 gpg gpg-agent \
   build-essential \
