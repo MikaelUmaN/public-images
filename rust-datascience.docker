@@ -78,9 +78,9 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
         cargo-sweep \
         cargo-cache \
         cargo-edit \
-        cargo-flamegraph \
         cargo-bloat \
-        cargo-machete && \
+        cargo-machete \
+        flamegraph && \
     rm -rf /tmp/cargo-install-target
 
 # Copy only the kernel spec to a global Jupyter dir (needs root)
