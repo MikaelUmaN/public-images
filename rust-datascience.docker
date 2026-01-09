@@ -52,9 +52,9 @@ COPY --chown=$USER:$USER init.evcxr /home/${USER}/.config/evcxr/
 USER $USER
 
 # Install evcxr_jupyter for the user
-RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
-    --mount=type=cache,target=/home/$USER/.cargo/git \
-    --mount=type=cache,target=/home/$USER/.cargo/install-target \
+RUN --mount=type=cache,target=/home/$USER/.cargo/registry,uid=1000,gid=1000 \
+    --mount=type=cache,target=/home/$USER/.cargo/git,uid=1000,gid=1000 \
+    --mount=type=cache,target=/home/$USER/.cargo/install-target,uid=1000,gid=1000 \
     CARGO_TARGET_DIR=/home/$USER/.cargo/install-target \
     cargo install --locked evcxr_jupyter evcxr_repl && \
     JUPYTER_PATH=/home/$USER/.local/share/jupyter evcxr_jupyter --install
@@ -62,9 +62,9 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
 # Rust toolchain components and cargo tools.
 RUN set -eux; \
     rustup component add rustfmt clippy rust-src rust-docs rust-analyzer llvm-tools-preview
-RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
-    --mount=type=cache,target=/home/$USER/.cargo/git \
-    --mount=type=cache,target=/home/$USER/.cargo/install-target \
+RUN --mount=type=cache,target=/home/$USER/.cargo/registry,uid=1000,gid=1000 \
+    --mount=type=cache,target=/home/$USER/.cargo/git,uid=1000,gid=1000 \
+    --mount=type=cache,target=/home/$USER/.cargo/install-target,uid=1000,gid=1000 \
     CARGO_TARGET_DIR=/home/$USER/.cargo/install-target \
     cargo install --locked \
       cargo-nextest \
