@@ -37,30 +37,54 @@ ENV CARGO_HOME=/home/$USER/.cargo \
 RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     --mount=type=cache,target=/home/$USER/.cargo/git \
     set -eux; \
-    mkdir -p /home/$USER/.cargo; \
-    chown -R $USER:$USER /home/$USER/.cargo; \
+    mkdir -p "$CARGO_HOME" "$RUSTUP_HOME"; \
+    chown -R $USER:$USER "$CARGO_HOME" "$RUSTUP_HOME"; \
     # run rustup installer as the ubuntu user so files are created with correct uid/gid
-    su - $USER -s /bin/sh -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable'
+    su $USER -s /bin/sh -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable'
 
 # Add config file with default crates and settings for evcxr.
-RUN mkdir -p /home/${USER}/.config/evcxr
-COPY init.evcxr /home/${USER}/.config/evcxr/
-RUN chown -R $USER:$USER /home/$USER/.config/evcxr
+RUN set -eux; \
+    mkdir -p /home/${USER}/.config/evcxr; \
+    chown -R $USER:$USER /home/$USER/.config
+
+COPY --chown=$USER:$USER init.evcxr /home/${USER}/.config/evcxr/
 
 USER $USER
 
 # Install evcxr_jupyter for the user
 RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     --mount=type=cache,target=/home/$USER/.cargo/git \
+    --mount=type=cache,target=/home/$USER/.cargo/install-target \
+    CARGO_TARGET_DIR=/home/$USER/.cargo/install-target \
     cargo install --locked evcxr_jupyter evcxr_repl && \
     JUPYTER_PATH=/home/$USER/.local/share/jupyter evcxr_jupyter --install
 
-RUN rustup component add rustfmt clippy rust-src
-RUN cargo install cargo-audit cargo-outdated cargo-watch cargo-deps cargo-tarpaulin cargo-sweep cargo-cache cargo-edit
+# Rust toolchain components and cargo tools.
+RUN set -eux; \
+    rustup component add rustfmt clippy rust-src rust-docs rust-analyzer llvm-tools-preview
+RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
+    --mount=type=cache,target=/home/$USER/.cargo/git \
+    --mount=type=cache,target=/home/$USER/.cargo/install-target \
+    CARGO_TARGET_DIR=/home/$USER/.cargo/install-target \
+    cargo install --locked \
+      cargo-nextest \
+      cargo-audit \
+      cargo-deny \
+      cargo-outdated \
+      cargo-watch \
+      cargo-deps \
+      cargo-llvm-cov \
+      cargo-sweep \
+      cargo-cache \
+      cargo-edit \
+      cargo-flamegraph \
+      cargo-bloat \
+      cargo-machete
 
 # Copy only the kernel spec to a global Jupyter dir (needs root)
 USER root
-RUN mkdir -p /usr/local/share/jupyter/kernels && \
+RUN set -eux; \
+    mkdir -p /usr/local/share/jupyter/kernels && \
     cp -r /home/$USER/.local/share/jupyter/kernels/* /usr/local/share/jupyter/kernels/
 
 USER $USER
