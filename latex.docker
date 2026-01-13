@@ -1,0 +1,56 @@
+FROM ubuntu:24.04
+
+# Pure LaTeX document processing image with comprehensive LaTeX tooling.
+# No Python, no data science packages - just LaTeX and document generation tools.
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV USER=ubuntu
+ENV HOME=/home/$USER
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  sudo wget curl git vim unzip \
+  ca-certificates gpg gpg-agent \
+  openssh-client \
+  build-essential \
+  pandoc \
+  graphviz \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
+    usermod -aG sudo $USER && \
+    echo "${USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USER}
+
+# Install complete TeX Live distribution with all extras.
+# texlive-full is a meta-package that includes ALL LaTeX packages:
+#   - texlive-fonts-extra (1.7GB - all font collections)
+#   - texlive-latex-extra (82MB - specialized packages)
+#   - texlive-luatex (44MB - LuaTeX engine)
+#   - texlive-xetex (16MB - XeTeX engine)
+#   - plus 40+ other texlive-* packages (~5-6GB total)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  texlive-full \
+  fonts-lmodern \
+  fonts-texgyre \
+  latexmk \
+  biber \
+  && rm -rf /var/lib/apt/lists/*
+
+# Refresh TeX filename database and font caches for all engines.
+RUN mktexlsr && \
+    luaotfload-tool --update --force || true && \
+    fc-cache -f -v || true
+
+RUN chown -R $USER:$USER $HOME
+
+USER $USER
+WORKDIR $HOME
+
+CMD ["/bin/bash"]
+
+# This image is designed for:
+# - Complex LaTeX document compilation
+# - Academic paper writing with extensive bibliography support
+# - Multi-language document processing
+# - Custom font and typography requirements
+# - Beamer presentations with advanced themes
+# - TikZ/PGF graphics generation

@@ -1,0 +1,53 @@
+# Dependencies for datascience image
+# This file will be merged into pyproject.toml during build
+
+[project]
+dependencies = [
+    "pandas",
+    "polars", 
+    "numpy",
+    "seaborn",
+    "plotly",
+    "duckdb[all]",
+    "torch",
+    "torchvision",
+    "scikit-learn",
+    "statsmodels",
+    "pymc",
+    "numba",
+    "xgboost",
+    "cvxpy",
+    "osqp",
+    "dask[dataframe]",
+    "dask-kubernetes",
+    "distributed",
+    "dask-cloudprovider",
+    "bokeh",
+    "graphviz",
+    "kaleido",
+    "tables",
+    "h5py",
+    "pyarrow",
+    "s3fs",
+    "aiobotocore",
+    "fastapi",
+    "orjson",
+    "uvicorn",
+    "aiofiles",
+    "aiohttp",
+    "openpyxl",
+    "lxml",
+    "ipywidgets",
+    "tqdm",
+    "cachetools",
+    "marimo",
+    "more-itertools",
+    "retrying",
+    "databento",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel",
+    "types-cachetools",
+]

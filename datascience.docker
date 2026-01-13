@@ -19,11 +19,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl 
   build-essential \
   libtiff5-dev graphviz \
   libxss1 libx11-xcb1 libgtk-3-0 \
-  texlive-latex-extra texlive-luatex texlive-latex-recommended texlive-xetex texlive-fonts-recommended texlive-fonts-extra fonts-lmodern fonts-texgyre && \
-  # refresh TeX filename DB and LuaTeX font cache so lualatex will find fonts/packages
+  pandoc \
+  texlive-latex-base texlive-latex-recommended texlive-fonts-recommended && \
+  # refresh TeX filename DB for basic LaTeX support (Jupyter PDF export)
   mktexlsr && \
-  luaotfload-tool --update --force || true && \
-  fc-cache -f -v || true && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
@@ -123,30 +122,27 @@ RUN uv init --app --description "datascience" && \
     uv tool install mypy && \
     uv tool install jupyterlab
 
+# Copy dependency declarations into image.
 # CUDA libraries are significantly more disk intensive then the CPU-only version.
 # We allow for both, defaulting to CPU-only.
-COPY pytorch.toml pytorch.toml
-RUN if [ "$USE_TORCH_GPU" = "false" ]; then \
-    cat pytorch.toml >> pyproject.toml && \
-    rm pytorch.toml; \
-else \
-    rm pytorch.toml; \
-fi
-
-RUN uv add --dev ipykernel types-cachetools && \
-    uv add pandas polars numpy seaborn plotly duckdb[all] \
-           torch scikit-learn statsmodels pymc numba xgboost cvxpy osqp \
-           dask[dataframe] dask-kubernetes distributed dask-cloudprovider \
-           bokeh graphviz kaleido \
-           tables h5py pyarrow s3fs aiobotocore \
-           fastapi orjson uvicorn aiofiles aiohttp \
-           openpyxl lxml \
-           ipywidgets \
-           tqdm cachetools marimo more-itertools retrying \
-           databento
+COPY dependencies.toml dependencies.toml
+COPY pytorch.toml pytorch-cpu.toml
+COPY pytorch-gpu.toml pytorch-gpu.toml
+RUN cat dependencies.toml >> pyproject.toml && \
+    rm dependencies.toml && \
+    if [ "$USE_TORCH_GPU" = "false" ]; then \
+        cat pytorch-cpu.toml >> pyproject.toml; \
+    else \
+        cat pytorch-gpu.toml >> pyproject.toml; \
+    fi && \
+    rm pytorch-cpu.toml pytorch-gpu.toml
 
 # Jupyter server configuration.
 RUN mkdir -p $HOME/.jupyter
 COPY jupyter_server_config.py $HOME/.jupyter/
 
-CMD ["uv", "run", "--with", "jupyter", "--with", "plotly", "jupyter", "lab"]
+# Copy Jupyter startup script.
+COPY --chown=$USER:$USER start-jupyter.sh $HOME/jupyter/
+RUN chmod +x $HOME/jupyter/start-jupyter.sh
+
+CMD ["/bin/bash"]
