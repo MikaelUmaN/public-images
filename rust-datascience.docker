@@ -10,6 +10,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
       build-essential pkg-config cmake \
       libssl-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev libsnappy-dev \
+      libopenblas-dev liblapack-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Duckdb pre-built library.

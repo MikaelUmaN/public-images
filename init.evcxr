@@ -4,4 +4,9 @@
 :dep chrono-tz = ">=0.10.4,<2"
 :dep rand = ">=0.9.2,<2"
 :dep rand_distr = ">=0.5.1,<2"
-:dep polars = { version = ">=0.52,<2", default-features = false, features = ["lazy", "timezones", "temporal", "csv", "parquet", "performant", "fmt_no_tty"] }
+:dep polars = { version = ">=0.52,<2", default-features = false, features = ["lazy", "timezones", "temporal", "csv", "parquet", "json", "ipc", "performant", "streaming", "dtype-full", "regex", "diff", "interpolate", "fmt_no_tty"] }
+:dep ndarray = { version = ">=0.16,<2", features = ["blas", "rayon"] }
+:dep ndarray-linalg = { version = ">=0.17,<2", features = ["openblas-system"] }
+:dep duckdb = ">=1.1,<2"
+:dep arrow = { version = ">=54,<55", features = ["ipc", "csv", "json", "prettyprint"] }
+:dep rayon = ">=1.10,<2"
