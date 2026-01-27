@@ -11,6 +11,7 @@ RUN set -eux; \
       build-essential pkg-config cmake \
       libssl-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev libsnappy-dev \
       libopenblas-dev liblapack-dev \
+      linux-tools-common linux-tools-generic \
     && rm -rf /var/lib/apt/lists/*
 
 # Duckdb pre-built library.
@@ -90,5 +91,11 @@ USER root
 RUN set -eux; \
     mkdir -p /usr/local/share/jupyter/kernels && \
     cp -r /home/$USER/.local/share/jupyter/kernels/* /usr/local/share/jupyter/kernels/
+
+# Hack perf tools symlink.
+RUN set -eux; \
+    PERF_BINARY=$(find /usr/lib/linux-tools -name perf -type f | head -n1); \
+    ln -sf "$PERF_BINARY" /usr/local/bin/perf; \
+    ln -sf /usr/local/bin/perf /usr/bin/perf
 
 USER $USER
