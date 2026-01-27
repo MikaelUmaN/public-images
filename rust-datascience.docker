@@ -94,7 +94,7 @@ RUN set -eux; \
 
 # Hack perf tools symlink.
 RUN set -eux; \
-    PERF_BINARY=$(find /usr/lib/linux-tools -name perf -type f | head -n1); \
+    PERF_BINARY=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -n1); \
     ln -sf "$PERF_BINARY" /usr/local/bin/perf; \
     ln -sf /usr/local/bin/perf /usr/bin/perf
 
