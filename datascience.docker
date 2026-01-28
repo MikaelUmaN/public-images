@@ -23,7 +23,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl 
   texlive-latex-base texlive-latex-recommended texlive-fonts-recommended && \
   # refresh TeX filename DB for basic LaTeX support (Jupyter PDF export)
   mktexlsr && \
+  # Add Charm repository for glow (terminal markdown viewer)
+  mkdir -p /etc/apt/keyrings && \
+  curl -fsSL https://repo.charm.sh/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/charm.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" > /etc/apt/sources.list.d/charm.list && \
+  # Add Nushell repository
+  curl -fsSL https://apt.fury.io/nushell/gpg.key | gpg --dearmor -o /etc/apt/keyrings/fury-nushell.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/fury-nushell.gpg] https://apt.fury.io/nushell/ /" > /etc/apt/sources.list.d/fury-nushell.list && \
+  apt-get update && apt-get install -y --no-install-recommends glow nushell && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# ----------------------------------------------------------------------
+# Google Chrome (headless browser for automation/scraping)
+RUN set -eux; \
+    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-chrome-stable && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
     usermod -aG sudo $USER && \
@@ -111,8 +128,12 @@ RUN chown -R $USER:$USER $HOME
 
 USER $USER
 
-# js.
-RUN curl -fsSL https://bun.sh/install | bash
+# Bun (JS runtime) and Claude Code CLI
+# Symlink node->bun so Node.js shebangs work (bun is Node-compatible)
+RUN curl -fsSL https://bun.sh/install | bash && \
+    ln -s $HOME/.bun/bin/bun $HOME/.bun/bin/node && \
+    $HOME/.bun/bin/bun install -g @anthropic-ai/claude-code
+ENV PATH="${HOME}/.bun/bin:${PATH}"
 
 RUN uv python install 3.13
 WORKDIR $HOME/jupyter

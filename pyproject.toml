@@ -46,6 +46,8 @@ dependencies = [
     "more-itertools",
     "retrying",
     "databento",
+    "click",
+    "boto3",
 ]
 
 [dependency-groups]
