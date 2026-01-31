@@ -22,3 +22,9 @@ docker build -f latex.docker -t mikaeluman/latex:latest .
 ```
 
 CI runs via manual workflow dispatch (`.github/workflows/datascience.yml`) - select image to build from dropdown.
+
+## Focus
+
+- Images are meant for data science and analytical, quantitative work.
+  - Except the latex.docker which is for technical documentation.
+- Main languages focused on are Python, Rust and F#.

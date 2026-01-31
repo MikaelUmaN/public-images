@@ -2,36 +2,31 @@ FROM mikaeluman/datascience:latest
 
 USER root
 
-ARG DOTNET_SDK_VERSIONS="8.0 9.0"
+ARG DOTNET_SDK_VERSION=10.0
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 
-# install Microsoft package repo and dotnet sdks
+# Install .NET SDK from Ubuntu repos (available since Ubuntu 24.04)
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends \
-      software-properties-common \
-      lsb-release; \
-    apt-get update; \
-    add-apt-repository -y universe; \
-    add-apt-repository -y ppa:dotnet/backports || true; \
-    apt-get update; \
-    for v in ${DOTNET_SDK_VERSIONS}; do \
-      apt-get install -y "dotnet-sdk-${v}" || (echo "Failed to install dotnet-sdk-${v}" >&2; exit 1); \
-    done; \
+    apt-get install -y --no-install-recommends dotnet-sdk-${DOTNET_SDK_VERSION}; \
     dotnet --list-sdks; \
     apt-get clean; rm -rf /var/lib/apt/lists/*
 
-# install dotnet global tools system-wide into /usr/local/bin and register kernels
+# Install dotnet global tools system-wide into /usr/local/bin and register kernels
 RUN set -eux; \
     TOOL_DIR=/usr/local/bin; \
     mkdir -p $TOOL_DIR; \
-    # install dotnet-interactive (Jupyter kernels) and a few useful CLI tools
-    dotnet tool install --tool-path $TOOL_DIR Microsoft.dotnet-interactive --version 1.0.632301; \
+    # dotnet-interactive: Jupyter kernels for C#, F#, PowerShell
+    dotnet tool install --tool-path $TOOL_DIR Microsoft.dotnet-interactive; \
+    # Fantomas: F# source code formatter
+    dotnet tool install --tool-path $TOOL_DIR fantomas; \
     chmod +x $TOOL_DIR/*; \
-    # ensure the interactive tool is usable and register kernels with Jupyter
     $TOOL_DIR/dotnet-interactive --version; \
+    $TOOL_DIR/fantomas --version; \
+    # Register .NET kernels with Jupyter
     mkdir -p /usr/local/share/jupyter/kernels; \
-    # install kernels into the active Jupyter environment.
     $TOOL_DIR/dotnet-interactive jupyter install --path /usr/local/share/jupyter/kernels;
+
+LABEL org.opencontainers.image.dotnet.version=${DOTNET_SDK_VERSION}
 
 USER $USER
