@@ -48,6 +48,7 @@ dependencies = [
     "databento",
     "click",
     "boto3",
+    "playwright",
 ]
 
 [dependency-groups]

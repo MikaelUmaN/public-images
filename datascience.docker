@@ -11,6 +11,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=ubuntu
 ENV HOME=/home/$USER
 
+# Playwright config: use system chromium, skip browser download
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 ARG USE_TORCH_GPU=false
 
 RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop git openssh-client vim unzip \
@@ -20,7 +24,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl 
   libtiff5-dev graphviz \
   libxss1 libx11-xcb1 libgtk-3-0 \
   pandoc \
-  texlive-latex-base texlive-latex-recommended texlive-fonts-recommended && \
+  texlive-latex-base texlive-latex-recommended texlive-fonts-recommended \
+  # Chromium for headless browser automation/scraping (works with Selenium/Playwright/Puppeteer)
+  chromium-browser && \
   # refresh TeX filename DB for basic LaTeX support (Jupyter PDF export)
   mktexlsr && \
   # Add Charm repository for glow (terminal markdown viewer)
@@ -32,15 +38,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl 
   echo "deb [signed-by=/etc/apt/keyrings/fury-nushell.gpg] https://apt.fury.io/nushell/ /" > /etc/apt/sources.list.d/fury-nushell.list && \
   apt-get update && apt-get install -y --no-install-recommends glow nushell && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# ----------------------------------------------------------------------
-# Google Chrome (headless browser for automation/scraping)
-RUN set -eux; \
-    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends google-chrome-stable && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
     usermod -aG sudo $USER && \
@@ -128,11 +125,11 @@ RUN chown -R $USER:$USER $HOME
 
 USER $USER
 
-# Bun (JS runtime) and Claude Code CLI
+# Bun (JS runtime), Playwright, and Claude Code CLI
 # Symlink node->bun so Node.js shebangs work (bun is Node-compatible)
 RUN curl -fsSL https://bun.sh/install | bash && \
     ln -s $HOME/.bun/bin/bun $HOME/.bun/bin/node && \
-    $HOME/.bun/bin/bun install -g @anthropic-ai/claude-code
+    $HOME/.bun/bin/bun install -g playwright @anthropic-ai/claude-code
 ENV PATH="${HOME}/.bun/bin:${PATH}"
 
 RUN uv python install 3.13
@@ -140,7 +137,8 @@ WORKDIR $HOME/jupyter
 
 RUN uv tool install ruff && \
     uv tool install mypy && \
-    uv tool install jupyterlab
+    uv tool install jupyterlab && \
+    uv tool install pre-commit
 
 # Copy pyproject.toml with all dependencies declared.
 # CUDA libraries are significantly more disk intensive than the CPU-only version.
