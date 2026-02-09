@@ -11,13 +11,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=ubuntu
 ENV HOME=/home/$USER
 
-# Playwright config: use system chromium, skip browser download
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
-
 ARG USE_TORCH_GPU=false
 
-RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop git openssh-client vim unzip \
+# Playwright config: use system Chrome, skip browser download
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_CHROME_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+
+RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop git openssh-client vim unzip file \
   iputils-ping iproute2 lsof bind9-dnsutils bind9-host \
   ca-certificates libnss3 gpg gpg-agent \
   build-essential \
@@ -25,8 +25,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl 
   libxss1 libx11-xcb1 libgtk-3-0 \
   pandoc \
   texlive-latex-base texlive-latex-recommended texlive-fonts-recommended \
-  # Chromium for headless browser automation/scraping (works with Selenium/Playwright/Puppeteer)
-  chromium-browser && \
+  # Additional Chrome dependencies for headless operation
+  libdrm2 libgbm1 libasound2t64 fonts-liberation libatk1.0-0 libcups2 libdbus-1-3 && \
+  # Add Google Chrome repository (for Playwright browser automation)
+  mkdir -p /etc/apt/keyrings && \
+  wget -qO - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
+  echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+  apt-get update && apt-get install -y google-chrome-stable && \
   # refresh TeX filename DB for basic LaTeX support (Jupyter PDF export)
   mktexlsr && \
   # Add Charm repository for glow (terminal markdown viewer)
