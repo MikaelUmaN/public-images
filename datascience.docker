@@ -19,6 +19,7 @@ ENV PLAYWRIGHT_CHROME_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
 RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop git openssh-client vim unzip file \
   iputils-ping iproute2 lsof bind9-dnsutils bind9-host \
+  linux-tools-generic \
   ca-certificates libnss3 gpg gpg-agent \
   build-essential \
   libtiff5-dev graphviz \
