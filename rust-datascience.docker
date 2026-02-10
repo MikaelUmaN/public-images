@@ -11,8 +11,6 @@ RUN set -eux; \
       build-essential pkg-config cmake \
       libssl-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev libsnappy-dev \
       libopenblas-dev liblapack-dev \
-      # Runtime libs for host-mounted perf binary (when using --perf with run-science.sh)
-      libdw1 libunwind8 libslang2 libbabeltrace1 libtraceevent1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Duckdb pre-built library.
