@@ -10,8 +10,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Base image (must be built first for dependent images)
 docker build -f datascience.docker -t mikaeluman/datascience:latest .
 
-# Language extension images (require base image)
+# Rust extension (requires base image)
 docker build -f rust-datascience.docker -t mikaeluman/datascience:rust .
+
+# .NET/F# extension (requires rust image)
 docker build -f net-datascience.docker -t mikaeluman/datascience:net .
 
 # GPU-enabled PyTorch variant

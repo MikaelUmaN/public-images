@@ -4,7 +4,7 @@
 This repo builds layered Docker images for data science environments:
 - `datascience.docker` - Base Python/ML environment with security-hardened tooling
 - `rust-datascience.docker` - Extends base with Rust ecosystem 
-- `net-datascience.docker` - Extends base with .NET SDKs and interactive kernels
+- `net-datascience.docker` - Extends rust image with .NET SDKs and F# tooling
 
 Built images are published as `mikaeluman/datascience:*` for reuse across projects.
 
@@ -12,7 +12,7 @@ Built images are published as `mikaeluman/datascience:*` for reuse across projec
 
 ### Layered Image Strategy
 - **Base image**: `datascience.docker` contains foundational tools (Python, AWS CLI, k8s tools)
-- **Language extensions**: `rust-datascience.docker` and `net-datascience.docker` build FROM the base
+- **Language extensions**: `rust-datascience.docker` builds FROM the base; `net-datascience.docker` builds FROM rust
 - **Shared components**: Common tooling installed once in base layer for efficiency
 
 ### Security-First Binary Installation
@@ -49,9 +49,9 @@ RUN uv add python-packages / cargo install tools
 - Components via `rustup component add`, tools via `cargo install`
 
 ### .NET Multi-SDK Setup
-- Multiple SDK versions: `DOTNET_SDK_VERSIONS="8.0 9.0"`
-- Global tool installation to `/usr/local/bin` for system-wide access
-- Jupyter kernel registration for interactive notebooks
+- LTS SDK versions installed side-by-side: dotnet-sdk-8.0 and dotnet-sdk-10.0
+- Global tools (fantomas, fsautocomplete, fsdocs-tool, fsharplint) installed to `~/.dotnet/tools`
+- Follows same user-level pattern as Rust (`~/.cargo/bin`) and Bun (`~/.bun/bin`)
 
 ## Development Workflow
 
@@ -60,7 +60,7 @@ RUN uv add python-packages / cargo install tools
 # Base image first
 docker build -f datascience.docker -t mikaeluman/datascience:latest .
 
-# Then language extensions
+# Then language extensions (net requires rust)
 docker build -f rust-datascience.docker -t mikaeluman/datascience:rust .
 docker build -f net-datascience.docker -t mikaeluman/datascience:net .
 ```

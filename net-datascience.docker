@@ -1,32 +1,32 @@
-FROM mikaeluman/datascience:latest
+FROM mikaeluman/rust-datascience:latest
 
 USER root
 
-ARG DOTNET_SDK_VERSION=10.0
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 
-# Install .NET SDK from Ubuntu repos (available since Ubuntu 24.04)
+# Install both .NET LTS SDKs side-by-side from Ubuntu repos (available since Ubuntu 24.04)
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends dotnet-sdk-${DOTNET_SDK_VERSION}; \
+    apt-get install -y --no-install-recommends \
+      dotnet-sdk-8.0 \
+      dotnet-sdk-10.0; \
     dotnet --list-sdks; \
     apt-get clean; rm -rf /var/lib/apt/lists/*
 
-# Install dotnet global tools system-wide into /usr/local/bin and register kernels
-RUN set -eux; \
-    TOOL_DIR=/usr/local/bin; \
-    mkdir -p $TOOL_DIR; \
-    # dotnet-interactive: Jupyter kernels for C#, F#, PowerShell
-    dotnet tool install --tool-path $TOOL_DIR Microsoft.dotnet-interactive; \
-    # Fantomas: F# source code formatter
-    dotnet tool install --tool-path $TOOL_DIR fantomas; \
-    chmod +x $TOOL_DIR/*; \
-    $TOOL_DIR/dotnet-interactive --version; \
-    $TOOL_DIR/fantomas --version; \
-    # Register .NET kernels with Jupyter
-    mkdir -p /usr/local/share/jupyter/kernels; \
-    $TOOL_DIR/dotnet-interactive jupyter install --path /usr/local/share/jupyter/kernels;
+# dotnet global tools install to ~/.dotnet/tools; add to PATH (mirrors ~/.cargo/bin pattern)
+ENV PATH=$HOME/.dotnet/tools:$PATH
 
-LABEL org.opencontainers.image.dotnet.version=${DOTNET_SDK_VERSION}
+USER $USER
+
+# Install F# tooling as user-level global tools
+RUN set -eux; \
+    dotnet tool install -g fantomas; \
+    dotnet tool install -g fsautocomplete; \
+    dotnet tool install -g fsdocs-tool; \
+    dotnet tool install -g dotnet-fsharplint; \
+    fantomas --version; \
+    fsautocomplete --version
+
+LABEL org.opencontainers.image.dotnet.versions="8.0,10.0"
 
 USER $USER
