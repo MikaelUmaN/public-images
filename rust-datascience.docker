@@ -85,6 +85,17 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
       cargo install --locked cargo-audit --features fix && \
     rm -rf /tmp/cargo-install-target
 
+# Nushell polars plugin (parquet, dataframes) - built from source, then registered
+RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
+    --mount=type=cache,target=/home/$USER/.cargo/git \
+    set -eux; \
+    CARGO_TARGET_DIR=/tmp/cargo-install-target \
+      cargo install --locked nu_plugin_polars && \
+    rm -rf /tmp/cargo-install-target
+RUN set -eux; \
+    nu -c 'plugin add ~/.cargo/bin/nu_plugin_polars' && \
+    nu -c 'plugin list | where name == polars | length | if $in == 0 { error make {msg: "polars plugin not registered"} }'
+
 # Copy only the kernel spec to a global Jupyter dir (needs root)
 USER root
 RUN set -eux; \
