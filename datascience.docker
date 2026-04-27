@@ -44,7 +44,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl 
   # Add Nushell repository
   curl -fsSL https://apt.fury.io/nushell/gpg.key | gpg --dearmor -o /etc/apt/keyrings/fury-nushell.gpg && \
   echo "deb [signed-by=/etc/apt/keyrings/fury-nushell.gpg] https://apt.fury.io/nushell/ /" > /etc/apt/sources.list.d/fury-nushell.list && \
-  apt-get update && apt-get install -y --no-install-recommends glow nushell && \
+  # Add Claude Code repository (stable channel); verify GPG fingerprint before trusting
+  curl -fsSL https://downloads.claude.ai/keys/claude-code.asc -o /etc/apt/keyrings/claude-code.asc && \
+  fpr=$(gpg --show-keys --with-colons /etc/apt/keyrings/claude-code.asc | awk -F: '/^fpr:/ {print $10; exit}') && \
+  [ "$fpr" = "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE" ] || { echo "Claude Code GPG fingerprint mismatch: $fpr" >&2; exit 1; } && \
+  echo "deb [signed-by=/etc/apt/keyrings/claude-code.asc] https://downloads.claude.ai/claude-code/apt/stable stable main" > /etc/apt/sources.list.d/claude-code.list && \
+  apt-get update && apt-get install -y --no-install-recommends glow nushell claude-code && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
@@ -133,11 +138,11 @@ RUN chown -R $USER:$USER $HOME
 
 USER $USER
 
-# Bun (JS runtime), Playwright, and Claude Code CLI
+# Bun (JS runtime), Playwright, and OpenAI Codex CLI
 # Symlink node->bun so Node.js shebangs work (bun is Node-compatible)
 RUN curl -fsSL https://bun.sh/install | bash && \
     ln -s $HOME/.bun/bin/bun $HOME/.bun/bin/node && \
-    $HOME/.bun/bin/bun install -g playwright @anthropic-ai/claude-code
+    $HOME/.bun/bin/bun install -g playwright @openai/codex
 ENV PATH="${HOME}/.bun/bin:${PATH}"
 
 RUN uv python install 3.13
@@ -146,7 +151,8 @@ WORKDIR $HOME/jupyter
 RUN uv tool install ruff && \
     uv tool install mypy && \
     uv tool install jupyterlab && \
-    uv tool install pre-commit
+    uv tool install pre-commit && \
+    uv tool install py-spy
 
 # Copy pyproject.toml with all dependencies declared.
 # CUDA libraries are significantly more disk intensive than the CPU-only version.
