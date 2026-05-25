@@ -3,6 +3,11 @@ FROM mikaeluman/datascience:latest
 ARG CARGO_BUILD_JOBS=8
 ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
 
+# Must match NUSHELL_VERSION in datascience.docker.
+# nu_plugin_polars releases are version-locked to nushell (e.g. 0.113.0 plugin <-> 0.113.0 nu binary);
+# bumping this ARG without bumping the base image will fail the plugin smoke test below.
+ARG NUSHELL_VERSION=0.113.0
+
 USER root
 
 RUN set -eux; \
@@ -85,18 +90,19 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
       cargo install --locked cargo-audit --features fix && \
     rm -rf /tmp/cargo-install-target
 
-# Nushell plugins: polars (dataframes) and parquet (from/to parquet) - built from source, then registered
+# Nushell polars plugin, pinned to the exact nushell version installed in the base image.
+# polars covers parquet read/write natively, so we no longer ship nu_plugin_parquet.
 RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     --mount=type=cache,target=/home/$USER/.cargo/git \
     set -eux; \
     CARGO_TARGET_DIR=/tmp/cargo-install-target \
-      cargo install --locked nu_plugin_polars nu_plugin_parquet && \
+      cargo install --locked nu_plugin_polars --version ${NUSHELL_VERSION} && \
     rm -rf /tmp/cargo-install-target
 RUN set -eux; \
     nu -c 'plugin add ~/.cargo/bin/nu_plugin_polars' && \
-    nu -c 'plugin add ~/.cargo/bin/nu_plugin_parquet' && \
+    nu -c 'plugin use polars' && \
     nu -c 'plugin list | where name == polars | length | if $in == 0 { error make {msg: "polars plugin not registered"} }' && \
-    nu -c 'plugin list | where name == parquet | length | if $in == 0 { error make {msg: "parquet plugin not registered"} }'
+    nu -c '[1 2 3] | polars into-df | polars into-nu | length | if $in != 3 { error make {msg: "polars roundtrip failed"} }'
 
 # Copy only the kernel spec to a global Jupyter dir (needs root)
 USER root

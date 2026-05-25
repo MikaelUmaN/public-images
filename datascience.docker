@@ -41,15 +41,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl 
   mkdir -p /etc/apt/keyrings && \
   curl -fsSL https://repo.charm.sh/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/charm.gpg && \
   echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" > /etc/apt/sources.list.d/charm.list && \
-  # Add Nushell repository
-  curl -fsSL https://apt.fury.io/nushell/gpg.key | gpg --dearmor -o /etc/apt/keyrings/fury-nushell.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/fury-nushell.gpg] https://apt.fury.io/nushell/ /" > /etc/apt/sources.list.d/fury-nushell.list && \
   # Add Claude Code repository (stable channel); verify GPG fingerprint before trusting
   curl -fsSL https://downloads.claude.ai/keys/claude-code.asc -o /etc/apt/keyrings/claude-code.asc && \
   fpr=$(gpg --show-keys --with-colons /etc/apt/keyrings/claude-code.asc | awk -F: '/^fpr:/ {print $10; exit}') && \
   [ "$fpr" = "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE" ] || { echo "Claude Code GPG fingerprint mismatch: $fpr" >&2; exit 1; } && \
   echo "deb [signed-by=/etc/apt/keyrings/claude-code.asc] https://downloads.claude.ai/claude-code/apt/stable stable main" > /etc/apt/sources.list.d/claude-code.list && \
-  apt-get update && apt-get install -y --no-install-recommends glow nushell claude-code && \
+  apt-get update && apt-get install -y --no-install-recommends glow claude-code && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
@@ -118,11 +115,26 @@ RUN set -eux; \
     /usr/local/bin/duckdb --version; \
     rm -f /tmp/${DUCKDB_ASSET}
 
+# Nushell pinned to an exact GitHub release tag (SHA256 verified).
+# Must stay in sync with NUSHELL_VERSION in rust-datascience.docker so the polars plugin loads.
+ARG NUSHELL_VERSION=0.113.0
+ARG NUSHELL_ASSET="nu-${NUSHELL_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+RUN set -eux; \
+    base="https://github.com/nushell/nushell/releases/download/${NUSHELL_VERSION}"; \
+    curl -fsSL -o /tmp/${NUSHELL_ASSET} "${base}/${NUSHELL_ASSET}"; \
+    curl -fsSL -o /tmp/nu_SHA256SUMS "${base}/SHA256SUMS"; \
+    (cd /tmp && grep " ${NUSHELL_ASSET}\$" nu_SHA256SUMS | sha256sum -c -); \
+    tar -xzf /tmp/${NUSHELL_ASSET} -C /tmp; \
+    install -m 0755 /tmp/nu-${NUSHELL_VERSION}-x86_64-unknown-linux-gnu/nu /usr/local/bin/nu; \
+    /usr/local/bin/nu --version | grep -F "${NUSHELL_VERSION}"; \
+    rm -rf /tmp/nu-${NUSHELL_VERSION}-* /tmp/${NUSHELL_ASSET} /tmp/nu_SHA256SUMS
+
 LABEL org.opencontainers.image.awscli.version=${AWS_CLI_VERSION} \
       org.opencontainers.image.kubectl.version=${KUBECTL_VERSION} \
       org.opencontainers.image.k9s.version=${K9S_VERSION} \
       org.opencontainers.image.helm.version=${HELM_VERSION} \
-      org.opencontainers.image.duckdb.version=${DUCKDB_VERSION}
+      org.opencontainers.image.duckdb.version=${DUCKDB_VERSION} \
+      org.opencontainers.image.nushell.version=${NUSHELL_VERSION}
 
 ENV UV_HTTP_TIMEOUT=60
 ENV UV_NATIVE_TLS=true
@@ -137,6 +149,11 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/
 RUN chown -R $USER:$USER $HOME
 
 USER $USER
+
+# Vim: keep viminfo inside a directory mount, not a single-file bind mount.
+# Renaming over a bind-mounted single file fails (E886) — vim writes atomically.
+RUN mkdir -p $HOME/.local/state/vim && \
+    printf 'set viminfofile=$HOME/.local/state/vim/viminfo\n' > $HOME/.vimrc
 
 # Bun (JS runtime), Playwright, and OpenAI Codex CLI
 # Symlink node->bun so Node.js shebangs work (bun is Node-compatible)
