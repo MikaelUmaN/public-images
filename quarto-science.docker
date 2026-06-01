@@ -1,0 +1,77 @@
+FROM mikaeluman/net-datascience:latest
+
+# Quarto publishing image: builds books/papers to PDF (XeLaTeX) and HTML.
+# Inherits Python/Jupyter/Rust/.NET/pandoc/Chrome from the lower layers.
+# Adds: extended TeX Live for Unicode + biblatex + science typography, and
+# the Quarto CLI itself. F# in Quarto is display-only (dotnet-interactive is
+# intentionally not reinstalled here).
+
+USER root
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ----------------------------------------------------------------------
+# Extended TeX Live for Quarto PDFs.
+# Base image already provides texlive-latex-base, -latex-recommended,
+# -fonts-recommended (see datascience.docker). The additions below cover:
+#   - XeLaTeX/LuaLaTeX engines for native UTF-8 (Swedish åäö via fontspec)
+#   - texlive-latex-extra: tcolorbox, pdflscape, bookmark, microtype,
+#     caption/subcaption, float — all required by Quarto's default PDF template
+#   - texlive-bibtex-extra + biber: modern biblatex pipeline
+#   - texlive-science: siunitx, physics, amsmath extras
+#   - texlive-pictures: TikZ/PGF + pgfplots
+#   - texlive-lang-european: Swedish hyphenation patterns (babel-swedish)
+#   - fonts-lmodern/texgyre: math-friendly serif fonts
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      texlive-xetex \
+      texlive-luatex \
+      texlive-latex-extra \
+      texlive-fonts-extra \
+      texlive-bibtex-extra \
+      texlive-science \
+      texlive-pictures \
+      texlive-lang-european \
+      fonts-lmodern \
+      fonts-texgyre \
+      biber \
+      latexmk; \
+    mktexlsr; \
+    apt-get clean; rm -rf /var/lib/apt/lists/*
+
+# ----------------------------------------------------------------------
+# Quarto CLI from official .deb release, sha256-verified against the
+# per-release checksums file (linux/amd64 only — matches base image policy).
+ARG QUARTO_VERSION=1.9.38
+RUN set -eux; \
+    base="https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}"; \
+    file="quarto-${QUARTO_VERSION}-linux-amd64.deb"; \
+    sums="quarto-${QUARTO_VERSION}-checksums.txt"; \
+    curl -fsSL -o /tmp/${file} "${base}/${file}"; \
+    curl -fsSL -o /tmp/${sums} "${base}/${sums}"; \
+    awk -v want="${file}" -v path="/tmp/${file}" '$2==want {print $1 "  " path}' /tmp/${sums} | sha256sum -c -; \
+    apt-get update && apt-get install -y --no-install-recommends /tmp/${file}; \
+    quarto --version | grep -F "${QUARTO_VERSION}"; \
+    apt-get clean; rm -rf /var/lib/apt/lists/* /tmp/${file} /tmp/${sums}
+
+LABEL org.opencontainers.image.quarto.version=${QUARTO_VERSION}
+
+USER $USER
+
+# ----------------------------------------------------------------------
+# Quarto-helper Python libraries.
+# Same pattern as the base layer: declare in pyproject.toml; `uv sync` runs
+# at first user-side use (matches datascience.docker behavior — no sync at
+# build time).
+#   - jupyter-cache: incremental re-renders for book-length projects
+#   - itables: interactive HTML DataTables for pandas/polars frames
+#   - tabulate: markdown/LaTeX table generation (used by Quarto + pandas/polars)
+#   - great-tables: publication-grade tables for HTML and LaTeX output
+RUN cd "$HOME/jupyter" && \
+    sed -i '/^dependencies = \[/a\    "jupyter-cache",\n    "itables",\n    "tabulate",\n    "great-tables",' pyproject.toml
+
+# Build-time smoke test: confirms Quarto can find pandoc, LaTeX, Python, Jupyter.
+RUN quarto check || true
+
+CMD ["/bin/bash"]

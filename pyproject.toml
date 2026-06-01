@@ -49,6 +49,8 @@ dependencies = [
     "click",
     "boto3",
     "playwright",
+    "papermill",
+    "python-dotenv",
 ]
 
 [dependency-groups]

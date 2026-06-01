@@ -19,6 +19,7 @@ ENV PLAYWRIGHT_CHROME_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
 RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop btop git openssh-client vim unzip file \
   iputils-ping iproute2 lsof bind9-dnsutils bind9-host \
+  chafa \
   linux-tools-generic \
   # Runtime libraries for host-mounted perf binary (WSL2 setup per CLAUDE.md)
   libdw1 libunwind8 libslang2 libbabeltrace1 libtraceevent1 libdebuginfod1 libpfm4 \
@@ -46,7 +47,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl 
   fpr=$(gpg --show-keys --with-colons /etc/apt/keyrings/claude-code.asc | awk -F: '/^fpr:/ {print $10; exit}') && \
   [ "$fpr" = "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE" ] || { echo "Claude Code GPG fingerprint mismatch: $fpr" >&2; exit 1; } && \
   echo "deb [signed-by=/etc/apt/keyrings/claude-code.asc] https://downloads.claude.ai/claude-code/apt/stable stable main" > /etc/apt/sources.list.d/claude-code.list && \
-  apt-get update && apt-get install -y --no-install-recommends glow claude-code && \
+  # Add GitHub CLI repository
+  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /etc/apt/keyrings/githubcli.gpg && \
+  echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/githubcli.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && \
+  apt-get update && apt-get install -y --no-install-recommends glow claude-code gh && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
@@ -159,7 +163,7 @@ RUN mkdir -p $HOME/.local/state/vim && \
 # Symlink node->bun so Node.js shebangs work (bun is Node-compatible)
 RUN curl -fsSL https://bun.sh/install | bash && \
     ln -s $HOME/.bun/bin/bun $HOME/.bun/bin/node && \
-    $HOME/.bun/bin/bun install -g playwright @openai/codex
+    $HOME/.bun/bin/bun install -g playwright @openai/codex @dotenvx/dotenvx
 ENV PATH="${HOME}/.bun/bin:${PATH}"
 
 RUN uv python install 3.13

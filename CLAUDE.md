@@ -16,6 +16,9 @@ docker build -f rust-datascience.docker -t mikaeluman/datascience:rust .
 # .NET/F# extension (requires rust image)
 docker build -f net-datascience.docker -t mikaeluman/datascience:net .
 
+# Quarto publishing variant (requires net image)
+docker build -f quarto-science.docker -t mikaeluman/quarto-science:latest .
+
 # GPU-enabled PyTorch variant
 docker build -f datascience.docker --build-arg USE_TORCH_GPU=true -t mikaeluman/datascience:gpu .
 
