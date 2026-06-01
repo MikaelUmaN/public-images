@@ -17,6 +17,11 @@ ARG USE_TORCH_GPU=false
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 ENV PLAYWRIGHT_CHROME_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
+# No host browser is reachable from inside the container (WSL interop doesn't extend here).
+# Tools like `gh auth login` honor BROWSER=none and cleanly print the URL instead of trying
+# (and failing) to spawn xdg-open. Most terminals make printed URLs Ctrl+Click-openable.
+ENV BROWSER=none
+
 RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop btop git openssh-client vim unzip file \
   iputils-ping iproute2 lsof bind9-dnsutils bind9-host \
   chafa \
