@@ -11,6 +11,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=ubuntu
 ENV HOME=/home/$USER
 
+# UTF-8 locale: C.UTF-8 ships in glibc (no locale-gen needed) and satisfies tools
+# like btop that refuse to start without a UTF-8 locale. Without this, LANG is unset
+# inside the container and defaults to C/POSIX (no UTF-8).
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
 ARG USE_TORCH_GPU=false
 
 # Playwright config: use system Chrome, skip browser download
@@ -25,6 +31,7 @@ ENV BROWSER=none
 RUN apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop btop git openssh-client vim unzip file \
   iputils-ping iproute2 lsof bind9-dnsutils bind9-host \
   chafa \
+  sqlite3 libsqlite3-dev \
   linux-tools-generic \
   # Runtime libraries for host-mounted perf binary (WSL2 setup per CLAUDE.md)
   libdw1 libunwind8 libslang2 libbabeltrace1 libtraceevent1 libdebuginfod1 libpfm4 \
