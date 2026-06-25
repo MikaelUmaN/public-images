@@ -164,6 +164,10 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/
 
 RUN chown -R $USER:$USER $HOME
 
+# Entrypoint creates a /home/<host-user> -> $HOME compatibility symlink at runtime
+# (driven by SYMLINK_HOME). Installed while still root so it lands in /usr/local/bin.
+COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
+
 USER $USER
 
 # Vim: keep viminfo inside a directory mount, not a single-file bind mount.
@@ -208,4 +212,5 @@ COPY jupyter_server_config.py $HOME/.jupyter/
 COPY --chown=$USER:$USER start-jupyter.sh $HOME/jupyter/
 RUN chmod +x $HOME/jupyter/start-jupyter.sh
 
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/bin/bash"]
