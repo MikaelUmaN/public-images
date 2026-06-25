@@ -5,7 +5,7 @@ This repo builds layered Docker images for data science environments:
 - `datascience.docker` - Base Python/ML environment with security-hardened tooling
 - `rust-datascience.docker` - Extends base with Rust ecosystem 
 - `net-datascience.docker` - Extends rust image with .NET SDKs and F# tooling
-- `quarto-science.docker` - Extends net image with Quarto CLI + extended TeX Live for book/paper publishing (PDF + HTML)
+- `quarto-datascience.docker` - Extends net image with Quarto CLI + extended TeX Live for book/paper publishing (PDF + HTML)
 
 Built images are published as `mikaeluman/datascience:*` for reuse across projects.
 
@@ -66,7 +66,7 @@ docker build -f rust-datascience.docker -t mikaeluman/datascience:rust .
 docker build -f net-datascience.docker -t mikaeluman/datascience:net .
 
 # Publishing variant (requires net image)
-docker build -f quarto-science.docker -t mikaeluman/quarto-science:latest .
+docker build -f quarto-datascience.docker -t mikaeluman/quarto-datascience:latest .
 ```
 
 ### Version Updates

@@ -1,5 +1,5 @@
 #!/bin/bash
-for img in datascience rust-datascience net-datascience quarto-science; do
+for img in datascience rust-datascience net-datascience quarto-datascience; do
   echo "=== Building $img ==="
   gh workflow run datascience.yml --ref main -f image="$img"
   sleep 5
