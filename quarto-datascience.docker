@@ -3,8 +3,11 @@ FROM mikaeluman/net-datascience:latest
 # Quarto publishing image: builds books/papers to PDF (XeLaTeX) and HTML.
 # Inherits Python/Jupyter/Rust/.NET/pandoc/Chrome from the lower layers.
 # Adds: extended TeX Live for Unicode + biblatex + science typography, and
-# the Quarto CLI itself. F# in Quarto is display-only (dotnet-interactive is
-# intentionally not reinstalled here).
+# the Quarto CLI itself. F# in Quarto is display-only: no image in the chain
+# installs a Jupyter kernel for F#/C#, so Quarto can render F# code blocks but
+# cannot execute them. (.NET Interactive, which used to provide that kernel, is
+# legacy/unmaintained and is deliberately not installed.) For F# execution use
+# the `dotnet fsi` REPL from the .NET SDK at the command line.
 
 USER root
 
