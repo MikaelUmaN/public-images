@@ -1,0 +1,94 @@
+FROM ubuntu:24.04
+
+# Embedded C/C++ toolchain for the Raspberry Pi Pico family (RP2040/RP2350).
+# Compile-only: builds .uf2 firmware. No flashing, no Python data science stack.
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV USER=ubuntu
+ENV HOME=/home/$USER
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  sudo wget curl git vim unzip \
+  ca-certificates \
+  openssh-client \
+  build-essential \
+  cmake ninja-build \
+  python3 \
+  pkg-config \
+  libusb-1.0-0-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+# Arm bare-metal cross-toolchain. Ubuntu 24.04 ships GCC 13.2, covering both
+# cortex-m0plus (RP2040) and cortex-m33 (RP2350). No RISC-V.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  gcc-arm-none-eabi \
+  libnewlib-arm-none-eabi \
+  libstdc++-arm-none-eabi-newlib \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  clang \
+  clangd \
+  clang-format \
+  clang-tidy \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
+    usermod -aG sudo $USER && \
+    echo "${USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USER}
+
+# Submodules are required for the wireless boards and USB stdio.
+ARG PICO_SDK_VERSION=2.3.0
+ENV PICO_SDK_PATH=/opt/pico-sdk
+RUN set -eux; \
+    git clone --branch "${PICO_SDK_VERSION}" --depth 1 \
+      --recurse-submodules --shallow-submodules \
+      https://github.com/raspberrypi/pico-sdk.git "${PICO_SDK_PATH}"; \
+    test -f "${PICO_SDK_PATH}/pico_sdk_init.cmake"
+
+# Version must match the SDK: it does find_package(picotool ${PICO_SDK_VERSION} REQUIRED).
+ARG PICOTOOL_VERSION=2.3.0
+RUN set -eux; \
+    git clone --branch "${PICOTOOL_VERSION}" --depth 1 \
+      https://github.com/raspberrypi/picotool.git /tmp/picotool; \
+    cmake -S /tmp/picotool -B /tmp/picotool/build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DPICO_SDK_PATH="${PICO_SDK_PATH}" \
+      -DCMAKE_INSTALL_PREFIX=/usr/local; \
+    cmake --build /tmp/picotool/build; \
+    cmake --install /tmp/picotool/build; \
+    picotool version; \
+    rm -rf /tmp/picotool
+
+# pioasm ships inside the SDK, but is rebuilt for every fresh build tree unless installed.
+RUN set -eux; \
+    cmake -S "${PICO_SDK_PATH}/tools/pioasm" -B /tmp/pioasm-build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr/local; \
+    cmake --build /tmp/pioasm-build; \
+    cmake --install /tmp/pioasm-build; \
+    rm -rf /tmp/pioasm-build
+
+# Smoke test the toolchain/SDK/picotool/pioasm chain. Costs build time, not image size.
+RUN set -eux; \
+    git clone --branch "${PICO_SDK_VERSION}" --depth 1 \
+      https://github.com/raspberrypi/pico-examples.git /tmp/pico-examples; \
+    cmake -S /tmp/pico-examples -B /tmp/pico-examples/build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DPICO_BOARD=pico2_w; \
+    cmake --build /tmp/pico-examples/build --target blink; \
+    test -f /tmp/pico-examples/build/blink/blink.uf2; \
+    rm -rf /tmp/pico-examples
+
+LABEL org.opencontainers.image.picosdk.version=${PICO_SDK_VERSION} \
+      org.opencontainers.image.picotool.version=${PICOTOOL_VERSION}
+
+RUN chown -R $USER:$USER $HOME
+
+COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
+
+USER $USER
+WORKDIR $HOME
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/bin/bash"]

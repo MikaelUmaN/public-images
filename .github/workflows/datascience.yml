@@ -13,6 +13,7 @@ on: # Only manual runs because the idea is to have multiple images and choose wh
         - rust-datascience
         - quarto-datascience
         - latex
+        - pico
 
 jobs:
 

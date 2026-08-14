@@ -24,6 +24,9 @@ docker build -f datascience.docker --build-arg USE_TORCH_GPU=true -t mikaeluman/
 
 # Standalone LaTeX image
 docker build -f latex.docker -t mikaeluman/latex:latest .
+
+# Standalone Raspberry Pi Pico (RP2040/RP2350) image
+docker build -f pico.docker -t mikaeluman/pico:latest .
 ```
 
 CI runs via manual workflow dispatch (`.github/workflows/datascience.yml`) - select image to build from dropdown.
@@ -32,7 +35,22 @@ CI runs via manual workflow dispatch (`.github/workflows/datascience.yml`) - sel
 
 - Images are meant for data science and analytical, quantitative work.
   - Except the latex.docker which is for technical documentation.
+  - And the pico.docker which is for Raspberry Pi Pico embedded development.
 - Main languages focused on are Python, Rust and F#.
+
+## Raspberry Pi Pico
+
+`pico.docker` bakes in the Pico SDK at `/opt/pico-sdk` (`PICO_SDK_PATH` preset), plus
+`picotool` and `pioasm` in `/usr/local`. `PICO_SDK_VERSION` and `PICOTOOL_VERSION` must be
+kept equal - the SDK does `find_package(picotool ${version} REQUIRED)`.
+
+Arm only; the RP2350 RISC-V cores would need a separate `riscv32` toolchain.
+
+```bash
+docker run --rm -it --user "$(id -u):$(id -g)" \
+  -v "$PWD:/home/ubuntu/dev" -w /home/ubuntu/dev mikaeluman/pico:latest
+cmake -B build -G Ninja -DPICO_BOARD=pico2_w && cmake --build build
+```
 
 ## Performance Profiling
 We are running on WSL. This means we do not have access to hardware counters etc. But we can still do CPU sampling and get good performance profiling diagnostics.
