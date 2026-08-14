@@ -10,13 +10,14 @@ ARG NUSHELL_VERSION=0.113.0
 
 USER root
 
-RUN set -eux; \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
       build-essential pkg-config cmake \
       libssl-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev libsnappy-dev \
-      libopenblas-dev liblapack-dev \
-    && rm -rf /var/lib/apt/lists/*
+      libopenblas-dev liblapack-dev
 
 # Duckdb pre-built library.
 RUN set -eux; \

@@ -8,13 +8,14 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_GENERATE_ASPNETCORE_CERTIFICATE=0
 
 # Install both .NET LTS SDKs side-by-side from Ubuntu repos (available since Ubuntu 24.04)
-RUN set -eux; \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
       dotnet-sdk-8.0 \
       dotnet-sdk-10.0; \
-    dotnet --list-sdks; \
-    apt-get clean; rm -rf /var/lib/apt/lists/*
+    dotnet --list-sdks
 
 # dotnet global tools install to ~/.dotnet/tools; add to PATH (mirrors ~/.cargo/bin pattern)
 ENV PATH=$HOME/.dotnet/tools:$PATH

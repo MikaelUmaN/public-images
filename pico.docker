@@ -7,7 +7,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=ubuntu
 ENV HOME=/home/$USER
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# The base image ships docker-clean, which deletes downloaded .debs after every
+# install and would defeat the apt cache mounts below.
+RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache && \
+    echo 'Acquire::Retries "5";' > /etc/apt/apt.conf.d/retries
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
   sudo wget curl git vim unzip \
   ca-certificates \
   openssh-client \
@@ -15,23 +23,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   cmake ninja-build \
   python3 \
   pkg-config \
-  libusb-1.0-0-dev \
-  && rm -rf /var/lib/apt/lists/*
+  libusb-1.0-0-dev
 
 # Arm bare-metal cross-toolchain. Ubuntu 24.04 ships GCC 13.2, covering both
 # cortex-m0plus (RP2040) and cortex-m33 (RP2350). No RISC-V.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
   gcc-arm-none-eabi \
   libnewlib-arm-none-eabi \
-  libstdc++-arm-none-eabi-newlib \
-  && rm -rf /var/lib/apt/lists/*
+  libstdc++-arm-none-eabi-newlib
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
   clang \
   clangd \
   clang-format \
-  clang-tidy \
-  && rm -rf /var/lib/apt/lists/*
+  clang-tidy
 
 RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
     usermod -aG sudo $USER && \
@@ -61,24 +70,43 @@ RUN set -eux; \
     rm -rf /tmp/picotool
 
 # pioasm ships inside the SDK, but is rebuilt for every fresh build tree unless installed.
+# PIOASM_VERSION_STRING is mandatory, and must match the SDK: the config package is
+# generated with ExactVersion compatibility.
 RUN set -eux; \
     cmake -S "${PICO_SDK_PATH}/tools/pioasm" -B /tmp/pioasm-build -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
+      -DPIOASM_VERSION_STRING="${PICO_SDK_VERSION}" \
       -DCMAKE_INSTALL_PREFIX=/usr/local; \
     cmake --build /tmp/pioasm-build; \
     cmake --install /tmp/pioasm-build; \
     rm -rf /tmp/pioasm-build
 
 # Smoke test the toolchain/SDK/picotool/pioasm chain. Costs build time, not image size.
+# The grep matters: when the installed picotool or pioasm is not found, the SDK silently
+# falls back to building its own copy, so a .uf2 alone does not prove they were used.
 RUN set -eux; \
-    git clone --branch "${PICO_SDK_VERSION}" --depth 1 \
-      https://github.com/raspberrypi/pico-examples.git /tmp/pico-examples; \
-    cmake -S /tmp/pico-examples -B /tmp/pico-examples/build -G Ninja \
+    mkdir -p /tmp/smoke; \
+    printf '%s\n' \
+      'cmake_minimum_required(VERSION 3.13)' \
+      'include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)' \
+      'project(smoke C CXX ASM)' \
+      'pico_sdk_init()' \
+      'add_executable(smoke main.c)' \
+      'target_link_libraries(smoke pico_stdlib pico_cyw43_arch_none)' \
+      'pico_add_extra_outputs(smoke)' \
+      > /tmp/smoke/CMakeLists.txt; \
+    printf '%s\n' \
+      '#include "pico/stdlib.h"' \
+      '#include "pico/cyw43_arch.h"' \
+      'int main(void) { cyw43_arch_init(); while (true) { sleep_ms(250); } }' \
+      > /tmp/smoke/main.c; \
+    cmake -S /tmp/smoke -B /tmp/smoke/build -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
-      -DPICO_BOARD=pico2_w; \
-    cmake --build /tmp/pico-examples/build --target blink; \
-    test -f /tmp/pico-examples/build/blink/blink.uf2; \
-    rm -rf /tmp/pico-examples
+      -DPICO_BOARD=pico2_w 2>&1 | tee /tmp/smoke/configure.log; \
+    ! grep -qiE 'building from source|Downloading Picotool|will need to be built' /tmp/smoke/configure.log; \
+    cmake --build /tmp/smoke/build; \
+    test -f /tmp/smoke/build/smoke.uf2; \
+    rm -rf /tmp/smoke
 
 LABEL org.opencontainers.image.picosdk.version=${PICO_SDK_VERSION} \
       org.opencontainers.image.picotool.version=${PICOTOOL_VERSION}

@@ -7,14 +7,21 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=ubuntu
 ENV HOME=/home/$USER
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# The base image ships docker-clean, which deletes downloaded .debs after every
+# install and would defeat the apt cache mounts below.
+RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache && \
+    echo 'Acquire::Retries "5";' > /etc/apt/apt.conf.d/retries
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
   sudo wget curl git vim unzip \
   ca-certificates gpg gpg-agent \
   openssh-client \
   build-essential \
   pandoc \
-  graphviz \
-  && rm -rf /var/lib/apt/lists/*
+  graphviz
 
 RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
     usermod -aG sudo $USER && \
@@ -27,13 +34,14 @@ RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
 #   - texlive-luatex (44MB - LuaTeX engine)
 #   - texlive-xetex (16MB - XeTeX engine)
 #   - plus 40+ other texlive-* packages (~5-6GB total)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
   texlive-full \
   fonts-lmodern \
   fonts-texgyre \
   latexmk \
-  biber \
-  && rm -rf /var/lib/apt/lists/*
+  biber
 
 # Refresh TeX filename database and font caches for all engines.
 RUN mktexlsr && \

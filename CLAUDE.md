@@ -31,6 +31,17 @@ docker build -f pico.docker -t mikaeluman/pico:latest .
 
 CI runs via manual workflow dispatch (`.github/workflows/datascience.yml`) - select image to build from dropdown.
 
+## apt caching
+
+Every apt layer uses BuildKit cache mounts on `/var/cache/apt` and `/var/lib/apt/lists`, so
+rebuilds skip re-downloading packages. This requires deleting `/etc/apt/apt.conf.d/docker-clean`
+(the base image ships it, and it wipes downloaded .debs) - done once in each standalone image.
+Do not add `apt-get clean` or `rm -rf /var/lib/apt/lists/*` back: those paths are cache mounts,
+never committed to a layer, so the cleanup only destroys the cache.
+
+Note `docker build --no-cache` wipes cache mounts. The benefit is local only - GitHub runners
+are ephemeral and the workflow exports no cache.
+
 ## Focus
 
 - Images are meant for data science and analytical, quantitative work.
