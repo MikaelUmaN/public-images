@@ -17,7 +17,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y --no-install-recommends \
       build-essential pkg-config cmake \
       libssl-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev libsnappy-dev \
-      libopenblas-dev liblapack-dev
+      libopenblas-dev liblapack-dev \
+      # X11 clipboard access from Rust (arboard, used by TUIs); the base image carries the
+      # runtime libx11-xcb1, these are the headers its build script links against.
+      libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
 # Duckdb pre-built library.
 RUN set -eux; \
@@ -86,6 +89,7 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
         cargo-edit \
         cargo-bloat \
         cargo-machete \
+        cargo-generate \
         flamegraph && \
     CARGO_TARGET_DIR=/tmp/cargo-install-target \
       cargo install --locked cargo-audit --features fix && \

@@ -17,15 +17,22 @@ ENV HOME=/home/$USER
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
+# Terminal capabilities for TUI work (ratatui, btop, vim). Docker's `-t` sets a bare
+# TERM=xterm, which caps rendering at 16 colours; these are the fallback when the host
+# TERM/COLORTERM are not forwarded with `docker run -e TERM -e COLORTERM`.
+ENV TERM=xterm-256color
+ENV COLORTERM=truecolor
+
 ARG USE_TORCH_GPU=false
 
 # Playwright config: use system Chrome, skip browser download
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 ENV PLAYWRIGHT_CHROME_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
-# No host browser is reachable from inside the container (WSL interop doesn't extend here).
-# Tools like `gh auth login` honor BROWSER=none and cleanly print the URL instead of trying
-# (and failing) to spawn xdg-open. Most terminals make printed URLs Ctrl+Click-openable.
+# BROWSER=none keeps `gh auth login` printing the URL instead of spawning xdg-open; most
+# terminals make printed URLs Ctrl+Click-openable. A host browser IS reachable for headed
+# viewing when the container is started with the WSLg socket mounts documented in CLAUDE.md
+# (headed HTML is opened by invoking google-chrome-stable directly, not via xdg-open).
 ENV BROWSER=none
 
 # The base image ships docker-clean, which deletes downloaded .debs after every
@@ -39,6 +46,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends sudo wget curl htop btop git openssh-client vim unzip file \
   iputils-ping iproute2 lsof bind9-dnsutils bind9-host \
   chafa \
+  # terminfo entries beyond the ncurses-base handful, so a forwarded host TERM
+  # (ghostty, wezterm, tmux-256color) resolves for terminfo-driven tools.
+  ncurses-term \
   sqlite3 libsqlite3-dev \
   linux-tools-generic \
   # Runtime libraries for host-mounted perf binary (WSL2 setup per CLAUDE.md)
@@ -50,7 +60,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   pandoc \
   texlive-latex-base texlive-latex-recommended texlive-fonts-recommended \
   # Additional Chrome dependencies for headless operation
-  libdrm2 libgbm1 libasound2t64 fonts-liberation libatk1.0-0 libcups2 libdbus-1-3 && \
+  libdrm2 libgbm1 libasound2t64 fonts-liberation libatk1.0-0 libcups2 libdbus-1-3 \
+  # Headed operation over WSLg: software/WSL GL (llvmpipe + d3d12 on Ubuntu 24.04 mesa),
+  # a session bus (dbus-launch), and legible fonts/emoji. X11 extension libs come in as
+  # google-chrome-stable Depends, so they are not repeated here.
+  libgl1 libegl1 libgl1-mesa-dri mesa-vulkan-drivers dbus-x11 fonts-noto-core fonts-noto-color-emoji && \
   # Add Google Chrome repository (for Playwright browser automation)
   mkdir -p /etc/apt/keyrings && \
   wget -qO - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \

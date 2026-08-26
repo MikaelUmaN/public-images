@@ -6,30 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build Commands
 
+Each stage builds `FROM` the previous, so they build in order:
+`datascience` -> `rust-datascience` -> `net-datascience` -> `quarto-datascience`.
+`latex.docker` and `pico.docker` are standalone.
+
 ```bash
-# Base image (must be built first for dependent images)
 docker build -f datascience.docker -t mikaeluman/datascience:latest .
-
-# Rust extension (requires base image)
-docker build -f rust-datascience.docker -t mikaeluman/datascience:rust .
-
-# .NET/F# extension (requires rust image)
-docker build -f net-datascience.docker -t mikaeluman/datascience:net .
-
-# Quarto publishing variant (requires net image)
-docker build -f quarto-datascience.docker -t mikaeluman/quarto-datascience:latest .
-
-# GPU-enabled PyTorch variant
-docker build -f datascience.docker --build-arg USE_TORCH_GPU=true -t mikaeluman/datascience:gpu .
-
-# Standalone LaTeX image
-docker build -f latex.docker -t mikaeluman/latex:latest .
-
-# Standalone Raspberry Pi Pico (RP2040/RP2350) image
-docker build -f pico.docker -t mikaeluman/pico:latest .
 ```
 
-CI runs via manual workflow dispatch (`.github/workflows/datascience.yml`) - select image to build from dropdown.
+Add `--build-arg USE_TORCH_GPU=true` for the GPU PyTorch variant. CI is manual workflow
+dispatch (`.github/workflows/datascience.yml`) with the image picked from a dropdown.
 
 ## apt caching
 
@@ -42,38 +28,50 @@ never committed to a layer, so the cleanup only destroys the cache.
 Note `docker build --no-cache` wipes cache mounts. The benefit is local only - GitHub runners
 are ephemeral and the workflow exports no cache.
 
-## Focus
-
-- Images are meant for data science and analytical, quantitative work.
-  - Except the latex.docker which is for technical documentation.
-  - And the pico.docker which is for Raspberry Pi Pico embedded development.
-- Main languages focused on are Python, Rust and F#.
-
 ## Raspberry Pi Pico
 
-`pico.docker` bakes in the Pico SDK at `/opt/pico-sdk` (`PICO_SDK_PATH` preset), plus
-`picotool` and `pioasm` in `/usr/local`. `PICO_SDK_VERSION` and `PICOTOOL_VERSION` must be
-kept equal - the SDK does `find_package(picotool ${version} REQUIRED)`.
+`pico.docker` bakes in the Pico SDK at `/opt/pico-sdk` (`PICO_SDK_PATH` preset), plus `picotool`
+and `pioasm` in `/usr/local`. `PICO_SDK_VERSION` and `PICOTOOL_VERSION` must be kept equal - the
+SDK does `find_package(picotool ${version} REQUIRED)`. Arm only; the RP2350 RISC-V cores would
+need a separate `riscv32` toolchain.
 
-Arm only; the RP2350 RISC-V cores would need a separate `riscv32` toolchain.
+## Rust TUI (ratatui)
 
-```bash
-docker run --rm -it --user "$(id -u):$(id -g)" \
-  -v "$PWD:/home/ubuntu/dev" -w /home/ubuntu/dev mikaeluman/pico:latest
-cmake -B build -G Ninja -DPICO_BOARD=pico2_w && cmake --build build
-```
+ratatui, crossterm and `tui-logger` write ANSI directly and need no system libraries, so they are
+project dependencies, never image content. The images contribute `TERM=xterm-256color`,
+`COLORTERM=truecolor` and `ncurses-term` for a forwarded host `TERM` (base), plus
+`cargo-generate` and the xcb headers `arboard` links against for clipboard access (rust).
+
+`docker run -t` is required - without a tty the alternate screen and key events do not work.
 
 ## Performance Profiling
-We are running on WSL. This means we do not have access to hardware counters etc. But we can still do CPU sampling and get good performance profiling diagnostics.
 
-Our strategy to achieve this is to build `perf` locally for our current WSL linux kernel using the Microsoft github package for `perf`. Then we mount volumes when running the container like:
+WSL exposes no hardware counters, but CPU sampling works. Build `perf` for the running WSL kernel
+from the Microsoft package (`~/scripts/install-wsl2-perf.sh`) and mount the host binary over both
+`/usr/local/bin/perf` and `/usr/bin/perf` — `~/run-science.sh --perf` does this. The base image
+carries `linux-tools-generic` for the shared libraries that binary links against.
+
+## GUI / Chrome (WSLg)
+
+The base image ships `google-chrome-stable` and the GL/dbus/font libraries for headed rendering.
+The display is a runtime fact of the host, never baked into the image. Headless needs no mounts:
 
 ```bash
-  echo "Mounting host perf from /usr/local/bin/perf"
-  DOCKER_OPTS+=(-v "/usr/local/bin/perf:/usr/local/bin/perf:ro")
-  DOCKER_OPTS+=(-v "/usr/local/bin/perf:/usr/bin/perf:ro")
+docker run --rm mikaeluman/datascience:latest google-chrome-stable --headless=new \
+  --no-sandbox --screenshot=/tmp/out.png "file:///abs/path.html"
 ```
 
-When building the image, we need to test that this setup works and that we can run `perf` within the container.
+Headed forwards a real window to Windows. `~/run-science.sh` adds the flags whenever `$DISPLAY`
+and `/mnt/wslg` exist, `--no-gui` opts out: `--shm-size=1g` (Chrome tabs crash on Docker's 64 MB
+`/dev/shm`), `-e DISPLAY -e WAYLAND_DISPLAY -e PULSE_SERVER`,
+`-e XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir` (the host's own value does not exist in the
+container), `-v /tmp/.X11-unix:/tmp/.X11-unix -v /mnt/wslg:/mnt/wslg`. Run from the WSL host,
+not from inside another container.
 
-To make this work, we need the `datascience` base image to contain shared libraries like `linux-tools-generic`.
+Every Chrome invocation needs `--no-sandbox` (non-root uid without `SYS_ADMIN`). Playwright is
+the bun/node package, not Python; `channel: 'chrome'` selects the system binary.
+
+Hardware GL takes `--device /dev/dxg -v /usr/lib/wsl:/usr/lib/wsl
+-e LD_LIBRARY_PATH=/usr/lib/wsl/lib -e GALLIUM_DRIVER=d3d12`. `GALLIUM_DRIVER` is required:
+with no `/dev/dri` to enumerate, mesa settles on llvmpipe. Chrome needs
+`--use-gl=angle --use-angle=gl` on top, or ANGLE stays on bundled SwiftShader.
