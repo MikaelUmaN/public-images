@@ -17,6 +17,18 @@ docker build -f datascience.docker -t mikaeluman/datascience:latest .
 Add `--build-arg USE_TORCH_GPU=true` for the GPU PyTorch variant. CI is manual workflow
 dispatch (`.github/workflows/datascience.yml`) with the image picked from a dropdown.
 
+## Pinned versions
+
+Every toolchain and tool version is pinned exactly - `RUST_VERSION`, `NUSHELL_VERSION`,
+`DUCKDB_VERSION`, `PICO_SDK_VERSION` and kin - never `stable` or `latest`. An unpinned toolchain
+turns an untouched Dockerfile into a failing build weeks later, so do not widen a pin to get past
+a broken build; fix the pinned combination instead.
+
+Pins do go stale. When working on an image, check whether its pins have newer releases and propose
+the bump, naming what moves with it: `NUSHELL_VERSION` has to change in `datascience.docker` and
+`rust-datascience.docker` together, and `RUST_VERSION` has to satisfy the crates the `--locked`
+installs resolve to.
+
 ## apt caching
 
 Every apt layer uses BuildKit cache mounts on `/var/cache/apt` and `/var/lib/apt/lists`, so

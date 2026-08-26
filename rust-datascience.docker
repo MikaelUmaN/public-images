@@ -4,9 +4,14 @@ ARG CARGO_BUILD_JOBS=8
 ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
 
 # Must match NUSHELL_VERSION in datascience.docker.
-# nu_plugin_polars releases are version-locked to nushell (e.g. 0.113.0 plugin <-> 0.113.0 nu binary);
+# nu_plugin_polars releases are version-locked to nushell (e.g. 0.115.1 plugin <-> 0.115.1 nu binary);
 # bumping this ARG without bumping the base image will fail the plugin smoke test below.
-ARG NUSHELL_VERSION=0.113.0
+ARG NUSHELL_VERSION=0.115.1
+
+# Pinned exactly, not `stable`: a new rustc breaks crates that the `--locked` installs below
+# pin to an exact version, so an unpinned toolchain turns an untouched Dockerfile into a
+# failing build weeks later.
+ARG RUST_VERSION=1.98.0
 
 USER root
 
@@ -50,7 +55,7 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     mkdir -p "$CARGO_HOME" "$RUSTUP_HOME"; \
     chown -R $USER:$USER "$CARGO_HOME" "$RUSTUP_HOME"; \
     # run rustup installer as the ubuntu user so files are created with correct uid/gid
-    su $USER -s /bin/sh -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable'
+    su $USER -s /bin/sh -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain ${RUST_VERSION}"
 
 # Add config file with default crates and settings for evcxr.
 RUN set -eux; \
