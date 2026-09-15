@@ -121,6 +121,16 @@ maintained majors (Helm), the pin-floating policy when fast-moving CLIs carry ve
 issues (bun, codex), and an End-of-life warning (its own workflow below). An expiring LTS with a
 newer line is not a question: the skill's rule advances it and the report marks the move.
 
+## New requirements
+
+Every skill report's New-requirements table is settled before the build. A missing system
+package joins the image's apt list (Tier B) with a comment naming the tool that needs it and a
+`check '<tool> --version'` in the smoke script. A kernel or container feature the image cannot
+ship becomes a `docker run` flag documented in `CLAUDE.md` and in `~/run-science.sh`, never a
+weakened default in the Dockerfile. A raised peer minimum joins the move plan as a coupled
+move. The table is reproduced in the report under Evidence, including rows that were already
+satisfied, so a later run sees they were checked.
+
 ## Apply and build
 
 Disk comes first. Before any build the agent reads `df -h /` and `docker system df` and prints

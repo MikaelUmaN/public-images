@@ -101,3 +101,11 @@ docker run --rm -v "$PWD/tests:/tests:ro" -e EXPECT_DUCKDB=1.4.2 mikaeluman/data
 
 The `version-pinner` agent moves pins to the newest long-term-stable release, rebuilds and runs
 these scripts; the `lts-versions` skill gives it the candidate and the compatibility evidence.
+
+## Codex sandbox (bubblewrap)
+
+Codex CLI sandboxes shell commands with bubblewrap and warns at startup when `bwrap` is missing
+or cannot create user namespaces. The base image ships `bubblewrap`; Docker's default seccomp
+profile still blocks unprivileged user namespaces, so a container that runs Codex needs
+`--security-opt seccomp=unconfined` (`~/run-science.sh` passes it). On the WSL host itself
+user namespaces work and `sudo apt install bubblewrap` is the whole fix.

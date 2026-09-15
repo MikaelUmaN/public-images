@@ -120,6 +120,32 @@ plus the release notes of the recommended version, read for "known issues" and "
 gh issue list -R <owner/repo> --state all --search "<distinctive fragment of the line>" --limit 10
 ```
 
+## Check new requirements
+
+A newer version can need what the current one did not. For the recommended candidate the skill
+reads the release notes of every release between `--current` and the candidate and the
+project's install or platform documentation at the candidate's tag, looking for a new or raised
+requirement in four kinds:
+
+- a system package or shared library (`apt`, `ldd`), such as bubblewrap for Codex's sandbox
+- a kernel or container feature (user namespaces, seccomp, cgroups, a device), which an image
+  cannot ship and a `docker run` flag must grant
+- a minimum peer version (Node, Python, glibc, a companion tool)
+- a configuration or environment variable the new version expects at startup
+
+Each finding is checked against the image: the package's presence in the Dockerfile's apt list
+or in `dpkg -l` of a built image, the feature by a probe (`unshare --user true`), the peer by
+its pinned version. Findings go in the report as:
+
+```
+### New requirements for <version>
+| requirement | kind | since | present in image | source (url — "quoted line") | remedy |
+|---|---|---|---|---|---|
+```
+
+`remedy` is the apt package name, the `docker run` flag, the peer bump, or the config line.
+A requirement the container cannot satisfy is reported as a runtime fact, never hidden.
+
 ## Investigate end of life
 
 Runs for an end-of-life suspect and on `--eol`. Three questions, each answered with evidence:
@@ -185,6 +211,10 @@ Support schedule: <one line> — <url>
 
 ### Known issues in <recommended version>
 - <url> — "<quoted title>" (open|closed; affects this image: yes|no|unknown)
+
+### New requirements for <recommended version>
+| requirement | kind | since | present in image | source (url — "quoted line") | remedy |
+|---|---|---|---|---|---|
 
 ### Recommendation
 <version> — <one sentence>. Moves with it: <peer -> version, ...>.

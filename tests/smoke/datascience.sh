@@ -33,6 +33,7 @@ allow 'Failed to connect to the bus|dbus' 'no session bus in a container'
 allow '/etc/machine-id contains 0 characters' 'no machine-id in a container'
 check 'chrome headless screenshot' google-chrome-stable --headless=new --no-sandbox --screenshot="$WORK/s.png" about:blank
 
+check 'bwrap --version' bwrap --version
 check 'claude --version' claude --version
 check 'gh --version' gh --version
 check 'glow --version' glow --version
