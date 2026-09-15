@@ -41,6 +41,6 @@ done
 
 rc=0
 wait "$build_pid" || rc=$?
-id="$(docker image inspect --format '{{.Id}}' "$tag" 2>/dev/null || echo none)"
-echo "BUILD $image rc=$rc elapsed=$(( ($(date +%s) - start) / 60 ))min id=${id#sha256:} final_avail=$(free_gb)G" | tee --append "$log"
+id="$(docker image inspect --format '{{.Id}}' "$tag" 2>/dev/null | tail --lines=1)"
+echo "BUILD $image rc=$rc elapsed=$(( ($(date +%s) - start) / 60 ))min id=${id:-none} final_avail=$(free_gb)G" | tee --append "$log"
 exit "$rc"

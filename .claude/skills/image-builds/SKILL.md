@@ -103,7 +103,9 @@ IMAGE_BUILDS_LOG_DIR=<scratch> scripts/guarded-build.sh <image> <n> [--build-arg
 runs in the background (a cold chain build exceeds the ten-minute foreground cap), polled with
 `grep -E '^#[0-9]+ (DONE|ERROR)' <log> | tail`. The trailer
 `BUILD <image> rc=<n> elapsed=<m>min id=<sha> final_avail=<g>G` is the verdict; `<n>` increments
-per attempt so logs are kept. `:latest` moves by
+per attempt so logs are kept. The script's own exit status carries the same verdict, so it is
+never piped into another command: a pipeline reports the last command's status and a failed
+build then reads as a pass. `:latest` moves by
 `docker tag mikaeluman/<img>:build-<n> mikaeluman/<img>:latest` after the smoke passes.
 
 ## Build on GitHub
