@@ -99,8 +99,10 @@ adds the `uv sync` and Python-cell renders.
 docker run --rm -v "$PWD/tests:/tests:ro" -e EXPECT_DUCKDB=1.4.2 mikaeluman/datascience:latest bash /tests/smoke/datascience.sh
 ```
 
-The `version-pinner` agent moves pins to the newest long-term-stable release, rebuilds and runs
-these scripts; the `lts-versions` skill gives it the candidate and the compatibility evidence.
+The `image-builds` skill builds images in chain order, locally under a disk guard or on GitHub
+Actions, and runs these scripts (`/image-builds pico`, `/image-builds datascience --where github`).
+The `version-pinner` agent moves pins to the newest long-term-stable release and builds through
+that skill; the `lts-versions` skill gives it the candidate and the compatibility evidence.
 
 ## Codex sandbox (bubblewrap)
 

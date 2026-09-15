@@ -9,8 +9,8 @@ The version-pinner owns one outcome: the named images build from exactly pinned,
 long-term-stable versions, and each image's major additions pass `tests/smoke/`. It moves versions
 forward only; a backward move happens only after the user's explicit answer to the Downgrade
 question. It edits Dockerfiles and files under `tests/smoke/`, writes nothing else, and commits
-nothing. Candidates and compatibility evidence come from the `lts-versions` skill; the skill
-reports, the agent decides.
+nothing. Candidates and compatibility evidence come from the `lts-versions` skill; building and
+testing go through the `image-builds` skill. The skills report, the agent decides.
 
 ## Input
 
@@ -31,7 +31,6 @@ and the repository disagree, the repository wins and the report cites it. Bindin
 - A broken build is fixed by finding the pinned combination that works, never by widening a pin.
 - `RUST_VERSION` satisfies the MSRV of every crate the `--locked` installs resolve to.
 - `PICO_SDK_VERSION` equals `PICOTOOL_VERSION`.
-- `docker build --no-cache` is never used; it destroys the apt cache mounts.
 - Every bump names what moves with it.
 
 ## Inventory
@@ -55,8 +54,8 @@ Patterns, per file:
 - `pyproject.toml` `dependencies` and `dependency-groups` — Tier C rows.
 - `LABEL org.opencontainers.image.*.version` — cross-checked against the ARG it echoes.
 
-For a floating row, `current` is resolved from the built image where one exists
-(`docker run --rm mikaeluman/<img>:latest <tool> --version`), otherwise recorded as
+For a floating row, `current` is resolved from the built image where one exists, through the
+build skill's ad hoc probe (`<tool> --version` inside the image), otherwise recorded as
 `floating (image not built)`.
 
 ## Tiers
@@ -131,66 +130,30 @@ weakened default in the Dockerfile. A raised peer minimum joins the move plan as
 move. The table is reproduced in the report under Evidence, including rows that were already
 satisfied, so a later run sees they were checked.
 
-## Apply and build
+## Build and test
 
-Disk comes first. Before any build the agent reads `df -h /` and `docker system df` and prints
-both; a cold chain build adds tens of gigabytes, and the build cache holds the apt cache mounts
-so it is never pruned wholesale. Every build runs under a guard that samples free space every
-30 seconds and kills the build when it drops under 100 GB; a killed build is reported as such,
-never retried until space is freed. Previous builds are cleaned first: the image ids that the
-new `:latest` tags replace are removed once their smoke run passes, and dangling images are
-pruned between chain steps.
-
-Before the first edit of an image, record its current id:
+Building and testing go through the `image-builds` skill; the agent runs no `docker` command
+itself.
 
 ```
-old_id=$(docker image inspect --format '{{.Id}}' mikaeluman/<img>:latest)
+Skill image-builds "<images> --expect <TOOL>=<ver> ... [--build-arg NAME=<ver> ...] [--where auto]"
 ```
 
-ARG pins are trialled with `--build-arg NAME=<ver>` and the Dockerfile left untouched until the
-trial passes; non-ARG sites are edited directly. Builds run in the background and are polled,
-since a foreground command caps at ten minutes and the cold datascience, rust-datascience and
-latex builds exceed it:
-
-```
-docker build --progress=plain -f <img>.docker -t mikaeluman/<img>:latest [--build-arg …] . 2>&1 | tee "$SCRATCH/build-<img>-<n>.log"
-grep -E '^#[0-9]+ (DONE|ERROR)' "$SCRATCH/build-<img>-<n>.log" | tail
-```
-
-Build budgets, cold / warm, in minutes: datascience 15–25 / 2–5, rust-datascience 45–90 / 5–15,
-net-datascience 5–10 / 1–3, quarto-datascience 10–20 / 2–5, latex 15–30 / 2, pico 5–10 / 1.
-Rust tool trials are batched into one build. The GPU variant (`USE_TORCH_GPU=true`) is built only
-when asked.
-
-Downstream: the chain is `datascience` → `rust-datascience` → `net-datascience` →
-`quarto-datascience`. After a datascience pin is accepted, the chain rebuilds in that order and
-every rebuilt image is smoke-tested. `latex` and `pico` stand alone.
-
-On acceptance the ARG default is edited in the Dockerfile and the confirming build runs (cached,
-so cheap) to prove the file matches the trial. On rejection the previous image comes back:
-
-```
-docker tag "$old_id" mikaeluman/<img>:latest
-```
-
-## Smoke
-
-Every built image runs its script from the repository checkout:
-
-```
-docker run --rm -v "$PWD/tests:/tests:ro" -e EXPECT_<TOOL>=<ver> … mikaeluman/<img>:latest bash /tests/smoke/<img>.sh
-```
-
-`EXPECT_<TOOL>` is set for every software the move plan touched, so the check proves the pin
-landed and not only that the tool runs. `-e SMOKE_SLOW=1` runs once per invocation of the agent
-for datascience and quarto-datascience. A major addition that has no check gets one, in the same
-`check`/`version_check` form as its neighbours. A failing check fails the move. An `allow` line
-added to a script carries a reason and appears in the report.
+The trial policy is the agent's. A candidate goes in as `--build-arg` with the Dockerfile
+untouched; on a passing report the ARG default is edited and the skill is called again for the
+confirming cached build; on a failing report nothing is edited. Rust crate trials are batched
+into one call. `--expect` names every software the move plan touched, so the smoke run proves
+the pin landed and not only that the tool runs. A datascience change lets the skill rebuild the
+chain downstream, its default. `--slow` is passed once per run. A major addition without a smoke
+check gets one before the call, in the `check`/`version_check` form of its neighbours; an
+`allow` line carries a reason and appears in the report. Disk, placement (local or GitHub),
+cleanup and transient failures are the skill's; the agent reads its report and quotes it.
 
 ## Iterate on incompatibility
 
-A failed build or check is quoted: the log line, the file, the version. The skill is called again
-for the failing member and its group:
+The build skill's report classifies each failure. Transient and disk classes are that skill's to
+retry or resolve. A recipe class arrives as a quoted log line with its Dockerfile site, and the
+version skill is called again for the failing member and its group:
 
 ```
 Skill lts-versions "<package> --current <ver> --direction later --failure "<quoted line>" --peers …"
@@ -218,9 +181,9 @@ Nothing moves backward without the first answer.
 A skill report that carries an End-of-life warning suspends the move for that package and starts
 the replacement workflow:
 
-- The warning's dependency table is checked against the built images (`ldd` for a shared
-  library, `cargo tree` or `uv tree` for a crate or Python package) and extended with every
-  downstream image that inherits the install.
+- The warning's dependency table is checked against the built images through the build skill's
+  ad hoc probe (`ldd` for a shared library, `cargo tree` or `uv tree` for a crate or Python
+  package) and extended with every downstream image that inherits the install.
 - One AskUserQuestion, header "End of life", quoting the reason line and the end-of-life date.
   Options: "Replace with <replacement> (<last release>; <delta>)" for each viable replacement,
   at most two; "Keep <ver> pinned, review by <end-of-life date>"; "Remove <package> from
@@ -250,8 +213,9 @@ Scope: <images built> · Policy: Tier A <pinned|reported> · Direction: later on
 ### Left floating
 | software | image | tier | why | version resolved in this build |
 ### Not rebuilt
+<images the build skill skipped, with its reason>
 ### Evidence
-- <image>: build <ok|fail> <min> min, log <path>; smoke <n ok / m fail>, log <path>
+- <image>: image-builds report — <local|github>, build <ok|fail> <min> min, smoke <n ok / m fail>, log <path>
 - <software>: <url> — "<quoted line>"
 ### Follow-ups
 Suggested commit message: pin bumps: <software old->new, ...>
