@@ -47,7 +47,7 @@ RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
     echo "${USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USER}
 
 # Submodules are required for the wireless boards and USB stdio.
-ARG PICO_SDK_VERSION=2.3.0
+ARG PICO_SDK_VERSION=2.3.1
 ENV PICO_SDK_PATH=/opt/pico-sdk
 RUN set -eux; \
     git clone --branch "${PICO_SDK_VERSION}" --depth 1 \
@@ -56,7 +56,7 @@ RUN set -eux; \
     test -f "${PICO_SDK_PATH}/pico_sdk_init.cmake"
 
 # Version must match the SDK: it does find_package(picotool ${PICO_SDK_VERSION} REQUIRED).
-ARG PICOTOOL_VERSION=2.3.0
+ARG PICOTOOL_VERSION=2.3.1
 RUN set -eux; \
     git clone --branch "${PICOTOOL_VERSION}" --depth 1 \
       https://github.com/raspberrypi/picotool.git /tmp/picotool; \

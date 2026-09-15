@@ -92,7 +92,7 @@ RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
 
 # ----------------------------------------------------------------------
 # AWS CLI v2 GPG verification (see AWS docs). We import the AWS CLI public key, verify the detached signature, then install.
-ARG AWS_CLI_VERSION=2.28.26
+ARG AWS_CLI_VERSION=2.36.45
 COPY awscliv2-public-key.asc awscliv2-public-key.asc
 RUN set -eux; \
     base="https://awscli.amazonaws.com"; \
@@ -110,9 +110,9 @@ RUN set -eux; \
 # ----------------------------------------------------------------------
 # Kubernetes CLI tooling (kubectl, k9s, helm) - pinned & checksum verified (linux/amd64 only)
 # Adjust versions via build args; architecture hardcoded for simplicity.
-ARG KUBECTL_VERSION=v1.34.1
-ARG K9S_VERSION=v0.50.12
-ARG HELM_VERSION=v3.19.0
+ARG KUBECTL_VERSION=v1.34.11
+ARG K9S_VERSION=v0.51.0
+ARG HELM_VERSION=v3.21.4
 
 RUN set -eux; \
     # kubectl (linux/amd64)
@@ -143,7 +143,7 @@ RUN set -eux; \
     rm -rf /tmp/*
 
 # install duckdb CLI into /usr/local/bin (on PATH)
-ARG DUCKDB_VERSION=1.4.2
+ARG DUCKDB_VERSION=1.4.5
 ARG DUCKDB_ASSET="duckdb_cli-linux-amd64.gz"
 RUN set -eux; \
     curl -fsSL -o /tmp/${DUCKDB_ASSET} "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/${DUCKDB_ASSET}"; \
@@ -183,7 +183,9 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 # Only use specific python installation, not the system python.
 ENV UV_PYTHON_PREFERENCE=only-managed
-RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/bin" sh
+ARG UV_VERSION=0.12.13
+RUN curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | env UV_INSTALL_DIR="/usr/local/bin" sh && \
+    uv --version | grep -F "${UV_VERSION}"
 
 RUN chown -R $USER:$USER $HOME
 
@@ -200,19 +202,36 @@ RUN mkdir -p $HOME/.local/state/vim && \
 
 # Bun (JS runtime), Playwright, and OpenAI Codex CLI
 # Symlink node->bun so Node.js shebangs work (bun is Node-compatible)
-RUN curl -fsSL https://bun.sh/install | bash && \
+ARG BUN_VERSION=1.4.2
+ARG PLAYWRIGHT_VERSION=1.62.1
+ARG CODEX_VERSION=0.153.4
+ARG DOTENVX_VERSION=2.23.0
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" && \
     ln -s $HOME/.bun/bin/bun $HOME/.bun/bin/node && \
-    $HOME/.bun/bin/bun install -g playwright @openai/codex @dotenvx/dotenvx
+    $HOME/.bun/bin/bun --version | grep -Fx "${BUN_VERSION}" && \
+    $HOME/.bun/bin/bun install -g "playwright@${PLAYWRIGHT_VERSION}" "@openai/codex@${CODEX_VERSION}" "@dotenvx/dotenvx@${DOTENVX_VERSION}"
 ENV PATH="${HOME}/.bun/bin:${PATH}"
 
 RUN uv python install 3.13
 WORKDIR $HOME/jupyter
 
-RUN uv tool install ruff && \
-    uv tool install mypy && \
-    uv tool install jupyterlab && \
-    uv tool install pre-commit && \
-    uv tool install py-spy
+# uv tools link their executables into ~/.local/bin.
+ENV PATH="${HOME}/.local/bin:${PATH}"
+
+ARG RUFF_VERSION=0.16.7
+ARG MYPY_VERSION=2.3.1
+ARG JUPYTERLAB_VERSION=4.6.3
+ARG PRE_COMMIT_VERSION=4.6.2
+ARG PY_SPY_VERSION=0.4.2
+RUN uv tool install "ruff==${RUFF_VERSION}" && \
+    uv tool install "mypy==${MYPY_VERSION}" && \
+    uv tool install "jupyterlab==${JUPYTERLAB_VERSION}" && \
+    uv tool install "pre-commit==${PRE_COMMIT_VERSION}" && \
+    uv tool install "py-spy==${PY_SPY_VERSION}"
+
+LABEL org.opencontainers.image.uv.version=${UV_VERSION} \
+      org.opencontainers.image.bun.version=${BUN_VERSION} \
+      org.opencontainers.image.playwright.version=${PLAYWRIGHT_VERSION}
 
 # Copy pyproject.toml with all dependencies declared.
 # CUDA libraries are significantly more disk intensive than the CPU-only version.

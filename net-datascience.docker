@@ -23,11 +23,15 @@ ENV PATH=$HOME/.dotnet/tools:$PATH
 USER $USER
 
 # Install F# tooling as user-level global tools
+ARG FANTOMAS_VERSION=7.0.6
+ARG FSAUTOCOMPLETE_VERSION=0.84.0
+ARG FSDOCS_VERSION=22.2.0
+ARG FSHARPLINT_VERSION=0.27.0
 RUN set -eux; \
-    dotnet tool install -g fantomas; \
-    dotnet tool install -g fsautocomplete; \
-    dotnet tool install -g fsdocs-tool; \
-    dotnet tool install -g dotnet-fsharplint; \
+    dotnet tool install -g fantomas --version "${FANTOMAS_VERSION}"; \
+    dotnet tool install -g fsautocomplete --version "${FSAUTOCOMPLETE_VERSION}"; \
+    dotnet tool install -g fsdocs-tool --version "${FSDOCS_VERSION}"; \
+    dotnet tool install -g dotnet-fsharplint --version "${FSHARPLINT_VERSION}"; \
     fantomas --version; \
     fsautocomplete --version
 

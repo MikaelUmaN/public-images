@@ -47,7 +47,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # ----------------------------------------------------------------------
 # Quarto CLI from official .deb release, sha256-verified against the
 # per-release checksums file (linux/amd64 only — matches base image policy).
-ARG QUARTO_VERSION=1.9.38
+ARG QUARTO_VERSION=1.10.18
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     set -eux; \
@@ -77,7 +77,7 @@ USER $USER
 RUN cd "$HOME/jupyter" && \
     sed -i '/^dependencies = \[/a\    "jupyter-cache",\n    "itables",\n    "tabulate",\n    "great-tables",' pyproject.toml
 
-# Build-time smoke test: confirms Quarto can find pandoc, LaTeX, Python, Jupyter.
-RUN quarto check || true
+# Build-time check: Quarto finds pandoc, LaTeX, Python and Jupyter, or the build fails.
+RUN quarto check
 
 CMD ["/bin/bash"]

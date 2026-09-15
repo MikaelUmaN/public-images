@@ -6,7 +6,9 @@ ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
 # Pinned exactly, not `stable`: a new rustc breaks crates that the `--locked` installs below
 # pin to an exact version, so an unpinned toolchain turns an untouched Dockerfile into a
 # failing build weeks later.
-ARG RUST_VERSION=1.98.0
+ARG RUST_VERSION=1.98.1
+# rustup itself, fetched from the versioned archive and SHA256-verified.
+ARG RUSTUP_VERSION=1.29.1
 
 USER root
 
@@ -22,10 +24,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       # runtime libx11-xcb1, these are the headers its build script links against.
       libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
-# Duckdb pre-built library.
+# Duckdb pre-built library, the same release as the duckdb CLI installed in the base image;
+# libduckdb-sys links against this .so.
+ARG DUCKDB_VERSION=1.4.5
 RUN set -eux; \
-    DUCKDB_VERSION="v1.4.2"; \
-    curl -L "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-linux-amd64.zip" -o /tmp/libduckdb.zip; \
+    duckdb --version | grep -F "v${DUCKDB_VERSION}"; \
+    curl -fsSL "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/libduckdb-linux-amd64.zip" -o /tmp/libduckdb.zip; \
     mkdir -p /opt/duckdb; \
     unzip /tmp/libduckdb.zip -d /opt/duckdb; \
     rm /tmp/libduckdb.zip; \
@@ -49,8 +53,14 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     set -eux; \
     mkdir -p "$CARGO_HOME" "$RUSTUP_HOME"; \
     chown -R $USER:$USER "$CARGO_HOME" "$RUSTUP_HOME"; \
-    # run rustup installer as the ubuntu user so files are created with correct uid/gid
-    su $USER -s /bin/sh -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain ${RUST_VERSION}"
+    base="https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/x86_64-unknown-linux-gnu"; \
+    curl -fsSL -o /tmp/rustup-init "${base}/rustup-init"; \
+    curl -fsSL -o /tmp/rustup-init.sha256 "${base}/rustup-init.sha256"; \
+    echo "$(cut -d' ' -f1 /tmp/rustup-init.sha256)  /tmp/rustup-init" | sha256sum -c -; \
+    chmod 0755 /tmp/rustup-init; \
+    # run rustup-init as the ubuntu user so files are created with correct uid/gid
+    su $USER -s /bin/sh -c "/tmp/rustup-init -y --profile minimal --default-toolchain ${RUST_VERSION}"; \
+    rm -f /tmp/rustup-init /tmp/rustup-init.sha256
 
 # Add config file with default crates and settings for evcxr.
 RUN set -eux; \
@@ -62,37 +72,52 @@ COPY --chown=$USER:$USER init.evcxr /home/${USER}/.config/evcxr/
 USER $USER
 
 # Install evcxr_jupyter for the user
+ARG EVCXR_VERSION=0.22.0
 RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     --mount=type=cache,target=/home/$USER/.cargo/git \
     set -eux; \
     CARGO_TARGET_DIR=/tmp/cargo-install-target \
-      cargo install --locked evcxr_jupyter evcxr_repl && \
+      cargo install --locked "evcxr_jupyter@${EVCXR_VERSION}" "evcxr_repl@${EVCXR_VERSION}" && \
     rm -rf /tmp/cargo-install-target && \
     JUPYTER_PATH=/home/$USER/.local/share/jupyter evcxr_jupyter --install
 
 # Rust toolchain components and cargo tools.
 RUN set -eux; \
     rustup component add rustfmt clippy rust-src rust-docs rust-analyzer llvm-tools-preview
+ARG CARGO_NEXTEST_VERSION=0.9.144
+ARG CARGO_DENY_VERSION=0.20.2
+ARG CARGO_OUTDATED_VERSION=0.19.0
+ARG CARGO_WATCH_VERSION=8.5.3
+ARG CARGO_DEPS_VERSION=1.5.1
+ARG CARGO_LLVM_COV_VERSION=0.9.1
+ARG CARGO_SWEEP_VERSION=0.8.0
+ARG CARGO_CACHE_VERSION=0.8.3
+ARG CARGO_EDIT_VERSION=0.13.13
+ARG CARGO_BLOAT_VERSION=0.12.1
+ARG CARGO_MACHETE_VERSION=0.9.2
+ARG CARGO_GENERATE_VERSION=0.24.0
+ARG FLAMEGRAPH_VERSION=0.6.14
+ARG CARGO_AUDIT_VERSION=0.22.2
 RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     --mount=type=cache,target=/home/$USER/.cargo/git \
     set -eux; \
     CARGO_TARGET_DIR=/tmp/cargo-install-target \
       cargo install --locked \
-        cargo-nextest \
-        cargo-deny \
-        cargo-outdated \
-        cargo-watch \
-        cargo-deps \
-        cargo-llvm-cov \
-        cargo-sweep \
-        cargo-cache \
-        cargo-edit \
-        cargo-bloat \
-        cargo-machete \
-        cargo-generate \
-        flamegraph && \
+        "cargo-nextest@${CARGO_NEXTEST_VERSION}" \
+        "cargo-deny@${CARGO_DENY_VERSION}" \
+        "cargo-outdated@${CARGO_OUTDATED_VERSION}" \
+        "cargo-watch@${CARGO_WATCH_VERSION}" \
+        "cargo-deps@${CARGO_DEPS_VERSION}" \
+        "cargo-llvm-cov@${CARGO_LLVM_COV_VERSION}" \
+        "cargo-sweep@${CARGO_SWEEP_VERSION}" \
+        "cargo-cache@${CARGO_CACHE_VERSION}" \
+        "cargo-edit@${CARGO_EDIT_VERSION}" \
+        "cargo-bloat@${CARGO_BLOAT_VERSION}" \
+        "cargo-machete@${CARGO_MACHETE_VERSION}" \
+        "cargo-generate@${CARGO_GENERATE_VERSION}" \
+        "flamegraph@${FLAMEGRAPH_VERSION}" && \
     CARGO_TARGET_DIR=/tmp/cargo-install-target \
-      cargo install --locked cargo-audit --features fix && \
+      cargo install --locked "cargo-audit@${CARGO_AUDIT_VERSION}" --features fix && \
     rm -rf /tmp/cargo-install-target
 
 # Nushell polars plugin, pinned to the exact nushell version installed in the base image.
