@@ -6,7 +6,7 @@ GitHub Actions means the base published to Docker Hub and locally means the loca
 
 | Image | Dockerfile | FROM | Build cold / warm (min) | Published size | Smoke script | `EXPECT_*` honoured | `full` adds |
 |---|---|---|---|---|---|---|---|
-| datascience | `datascience.docker` | `ubuntu:24.04` | 15–25 / 2–5 | 5.7 GB | `tests/smoke/datascience.sh` | NUSHELL, DUCKDB (`v1.x.y`), AWS_CLI, KUBECTL (`v1.x.y`), K9S (`v0.x.y`), HELM (`v3.x.y`), UV, BUN, PLAYWRIGHT, CODEX, DOTENVX, RUFF, MYPY, JUPYTERLAB, PRE_COMMIT, PY_SPY | `--slow` (uv sync, core imports, Python Playwright), `--perf`, `--sandbox` |
+| datascience | `datascience.docker` | `ubuntu:24.04` | 15–25 / 2–5 | 5.7 GB | `tests/smoke/datascience.sh` | NUSHELL, DUCKDB (`v1.x.y`), AWS_CLI, KUBECTL (`v1.x.y`), K9S (`v0.x.y`), HELM (`v3.x.y`), UV, BUN, PLAYWRIGHT, CODEX, DOTENVX, CLAUDE_CODE, RUFF, MYPY, JUPYTERLAB, PRE_COMMIT, PY_SPY | `--slow` (uv sync, core imports, Python Playwright), `--perf`, `--sandbox` |
 | rust-datascience | `rust-datascience.docker` | `mikaeluman/datascience:latest` | 45–90 / 5–15 | 9.1 GB | `tests/smoke/rust-datascience.sh` | RUST, RUSTUP | — |
 | net-datascience | `net-datascience.docker` | `mikaeluman/rust-datascience:latest` | 5–10 / 1–3 | 11.5 GB | `tests/smoke/net-datascience.sh` | FANTOMAS, FSAUTOCOMPLETE, FSDOCS, FSHARPLINT | — |
 | quarto-datascience | `quarto-datascience.docker` | `mikaeluman/net-datascience:latest` | 10–20 / 2–5 | 16 GB | `tests/smoke/quarto-datascience.sh` | QUARTO | `--slow` (Python-cell render, PDF render) |

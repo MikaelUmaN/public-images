@@ -47,8 +47,8 @@ probe, otherwise `floating (image not built)`.
 
 | Tier | Contents | Action |
 |---|---|---|
-| A | installers (uv, bun, rustup), tool installs (`cargo`, `uv tool`, `bun -g`, `dotnet tool`), GitHub-release binaries | pin exactly, move to LTS |
-| B | Ubuntu apt including `dotnet-sdk-*` and `texlive-*`, vendor apt repositories (chrome, glow, claude-code, gh), `uv python install 3.13` | leave to the repository; record the resolved version |
+| A | installers (uv, bun, rustup, Claude Code), tool installs (`cargo`, `uv tool`, `bun -g`, `dotnet tool`), GitHub-release binaries | pin exactly, move to LTS |
+| B | Ubuntu apt including `dotnet-sdk-*` and `texlive-*`, vendor apt repositories (chrome, glow, gh), `uv python install 3.13` | leave to the repository; record the resolved version |
 | C | `pyproject.toml` dependency names | report, never pin |
 
 When Tier A contains an unpinned row and no `pin-floating` policy was given, one

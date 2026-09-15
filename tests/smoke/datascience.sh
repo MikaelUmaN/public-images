@@ -59,7 +59,7 @@ else
 fi
 
 check 'bwrap --version' bwrap --version
-check 'claude --version' claude --version
+version_check claude_code claude --version
 check 'gh --version' gh --version
 check 'glow --version' glow --version
 

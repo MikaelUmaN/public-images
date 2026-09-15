@@ -79,15 +79,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   mkdir -p /etc/apt/keyrings && \
   curl -fsSL https://repo.charm.sh/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/charm.gpg && \
   echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" > /etc/apt/sources.list.d/charm.list && \
-  # Add Claude Code repository (stable channel); verify GPG fingerprint before trusting
-  curl -fsSL https://downloads.claude.ai/keys/claude-code.asc -o /etc/apt/keyrings/claude-code.asc && \
-  fpr=$(gpg --show-keys --with-colons /etc/apt/keyrings/claude-code.asc | awk -F: '/^fpr:/ {print $10; exit}') && \
-  [ "$fpr" = "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE" ] || { echo "Claude Code GPG fingerprint mismatch: $fpr" >&2; exit 1; } && \
-  echo "deb [signed-by=/etc/apt/keyrings/claude-code.asc] https://downloads.claude.ai/claude-code/apt/stable stable main" > /etc/apt/sources.list.d/claude-code.list && \
   # Add GitHub CLI repository
   curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /etc/apt/keyrings/githubcli.gpg && \
   echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/githubcli.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && \
-  apt-get update && apt-get install -y --no-install-recommends glow claude-code gh
+  apt-get update && apt-get install -y --no-install-recommends glow gh
 
 RUN id -u ubuntu 2>/dev/null || useradd -ms /bin/bash ubuntu && \
     usermod -aG sudo $USER && \
@@ -218,8 +213,15 @@ ENV PATH="${HOME}/.bun/bin:${PATH}"
 RUN uv python install 3.13
 WORKDIR $HOME/jupyter
 
-# uv tools link their executables into ~/.local/bin.
+# uv tools and the Claude Code native installer link their executables into ~/.local/bin.
 ENV PATH="${HOME}/.local/bin:${PATH}"
+
+# Claude Code from Anthropic's native installer: a versioned binary under ~/.local/share/claude
+# with a launcher at ~/.local/bin/claude, so `claude update` replaces it in place. Runs as $USER
+# so the installation lives in that user's home.
+ARG CLAUDE_CODE_VERSION=2.1.259
+RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_CODE_VERSION}" && \
+    claude --version | grep -F "${CLAUDE_CODE_VERSION}"
 
 ARG RUFF_VERSION=0.16.7
 ARG MYPY_VERSION=2.3.1
@@ -234,7 +236,8 @@ RUN uv tool install "ruff==${RUFF_VERSION}" && \
 
 LABEL org.opencontainers.image.uv.version=${UV_VERSION} \
       org.opencontainers.image.bun.version=${BUN_VERSION} \
-      org.opencontainers.image.playwright.version=${PLAYWRIGHT_VERSION}
+      org.opencontainers.image.playwright.version=${PLAYWRIGHT_VERSION} \
+      org.opencontainers.image.claude-code.version=${CLAUDE_CODE_VERSION}
 
 # Copy pyproject.toml with all dependencies declared.
 # CUDA libraries are significantly more disk intensive than the CPU-only version.

@@ -44,7 +44,7 @@ unless `push=false`.
 Every toolchain and tool is an exact `ARG <NAME>_VERSION`, never `stable` or `latest`, asserted
 at install (`<tool> --version | grep -F`) and echoed by `LABEL org.opencontainers.image.<tool>.version`.
 Designed exceptions: Ubuntu apt (including `dotnet-sdk-*` and `texlive-*`), the vendor apt
-repositories (Chrome, Charm, Claude Code, GitHub CLI), `uv python install 3.13` (minor pinned),
+repositories (Chrome, Charm, GitHub CLI), `uv python install 3.13` (minor pinned),
 and `pyproject.toml` dependencies (declared, never pinned).
 
 - A broken build is fixed by the pinned combination that works, never by widening a pin,
@@ -60,14 +60,13 @@ and `pyproject.toml` dependencies (declared, never pinned).
 ## Installing
 
 Root installs apt packages and `/usr/local` binaries; after `USER $USER` toolchains install into
-the home directory: bun in `~/.bun` (`node` is a symlink to bun), uv tools in `~/.local`, rustup
+the home directory: bun in `~/.bun` (`node` is a symlink to bun), uv tools and Claude Code in `~/.local`, rustup
 and cargo in `~/.rustup` and `~/.cargo`, dotnet tools in `~/.dotnet/tools`, each bin dir on `PATH`.
 
 Release downloads are verified where the vendor publishes a signature or checksum: GPG for the
-AWS CLI (`awscliv2-public-key.asc`) and the Claude Code apt key fingerprint; SHA256 for kubectl,
-k9s, helm, Nushell, rustup and Quarto. The DuckDB CLI, libduckdb, the uv and bun installers and
-the Pico SDK and picotool clones are fetched at a versioned URL or tag with a version assertion
-and no checksum.
+AWS CLI (`awscliv2-public-key.asc`); SHA256 for kubectl, k9s, helm, Nushell, rustup and Quarto.
+The DuckDB CLI, libduckdb, the uv, bun and Claude Code installers and the Pico SDK and picotool
+clones are fetched at a versioned URL or tag with a version assertion and no checksum.
 
 ## apt caching
 
