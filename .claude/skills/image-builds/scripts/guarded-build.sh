@@ -1,11 +1,12 @@
 #!/bin/bash
 # guarded-build.sh <image> <n> [docker build args...]
 #
-# Builds mikaeluman/<image>:latest from <image>.docker at the repository root while sampling
-# free disk every 30 s. Kills the build and exits 3 when free space drops under MIN_FREE_GB
-# (default 100). Writes build-<image>-<n>.log and disk-<image>-<n>.log to IMAGE_BUILDS_LOG_DIR
-# (default: a fresh mktemp directory, printed first). The last log line reads
-# "BUILD <image> rc=<n> elapsed=<m>min final_avail=<g>G".
+# Builds mikaeluman/<image>:<IMAGE_BUILDS_TAG> (default build-<n>) from <image>.docker at the
+# repository root while sampling free disk every 30 s. Kills the build and exits 3 when free
+# space drops under MIN_FREE_GB (default 100). Writes build-<image>-<n>.log and
+# disk-<image>-<n>.log to IMAGE_BUILDS_LOG_DIR (default: a fresh mktemp directory, printed
+# first). The last log line reads "BUILD <image> rc=<n> elapsed=<m>min id=<sha> final_avail=<g>G";
+# :latest moves only by an explicit `docker tag` after the image passed its smoke run.
 set -euo pipefail
 
 image="$1"
@@ -22,8 +23,9 @@ echo "logs: $log $disk_log"
 
 free_gb() { df --output=avail --block-size=G / | tail --lines=1 | tr --delete --complement '0-9'; }
 
+tag="mikaeluman/$image:${IMAGE_BUILDS_TAG:-build-$n}"
 start=$(date +%s)
-docker build --progress=plain --file "$repo/$image.docker" --tag "mikaeluman/$image:latest" "$@" "$repo" > "$log" 2>&1 &
+docker build --progress=plain --file "$repo/$image.docker" --tag "$tag" "$@" "$repo" > "$log" 2>&1 &
 build_pid=$!
 
 while kill -0 "$build_pid" 2>/dev/null; do
@@ -39,5 +41,6 @@ done
 
 rc=0
 wait "$build_pid" || rc=$?
-echo "BUILD $image rc=$rc elapsed=$(( ($(date +%s) - start) / 60 ))min final_avail=$(free_gb)G" | tee --append "$log"
+id="$(docker image inspect --format '{{.Id}}' "$tag" 2>/dev/null || echo none)"
+echo "BUILD $image rc=$rc elapsed=$(( ($(date +%s) - start) / 60 ))min id=${id#sha256:} final_avail=$(free_gb)G" | tee --append "$log"
 exit "$rc"

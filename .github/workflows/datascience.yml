@@ -1,4 +1,5 @@
 name: Datascience Image CI
+run-name: ${{ inputs.image }} push=${{ inputs.push }}
 
 on: # Only manual runs because the idea is to have multiple images and choose what to build.
   workflow_dispatch:

@@ -62,19 +62,8 @@ they decide, in this order:
   the cluster skew, a crate by `RUST_VERSION`), the report names the conflict and the caller
   puts it to the user.
 
-Per project:
-
-- .NET: `release-type: lts` and `support-phase: active`; a `maintenance` LTS is expiring.
-- Python: the minor with at least twelve months to end-of-life and `cp313`-class wheels for
-  torch, numba and pymc.
-- kubectl: the highest patch within the current minor; a minor move needs `cluster-minor` from
-  the caller.
-- Quarto: the stable channel only.
-- DuckDB: the `lts` and `end_of_life` columns of `duckdb-releases.csv`; the release calendar
-  for planned lines.
-- Helm: 3.x and 4.x are maintained in parallel; the recommendation stays inside the current
-  major and names the other major's candidate for the user.
-- Ubuntu: fixed at 24.04.
+Project-specific support windows (.NET, Python, kubectl, Quarto, DuckDB, Helm, Ubuntu) are the
+LTS notion column of `references/ecosystems.md`.
 
 Everywhere else the maturity gate decides. A candidate passes when all hold:
 
@@ -135,16 +124,9 @@ requirement in four kinds:
 
 Each finding is checked against the image: the package's presence in the Dockerfile's apt list
 or in `dpkg -l` of a built image, the feature by a probe (`unshare --user true`), the peer by
-its pinned version. Findings go in the report as:
-
-```
-### New requirements for <version>
-| requirement | kind | since | present in image | source (url — "quoted line") | remedy |
-|---|---|---|---|---|---|
-```
-
-`remedy` is the apt package name, the `docker run` flag, the peer bump, or the config line.
-A requirement the container cannot satisfy is reported as a runtime fact, never hidden.
+its pinned version. Findings fill the New requirements section of the report; `remedy` is the apt package name,
+the `docker run` flag, the peer bump, or the config line. A requirement the container cannot
+satisfy is reported as a runtime fact, never hidden.
 
 ## Investigate end of life
 
@@ -168,21 +150,7 @@ Runs for an end-of-life suspect and on `--eol`. Three questions, each answered w
   LABEL, library consumer, smoke check). Consumers inside a built image are the caller's to
   verify; the skill reads the repository, not the images.
 
-The findings are appended to the standard report:
-
-```
-### End-of-life warning: <package>
-Line <x.y> ends <date>; newest release <ver> (<date>) is on that line; calendar: <none | url>.
-Reason: <archived | dormant since <date> | announced at <url>> — "<quoted line>"
-
-| replacement | url | last release | licence | delta against <package> |
-|---|---|---|---|---|
-
-| image | file:line | kind |
-|---|---|---|
-
-Options for the user: replace with <name> | keep <ver> pinned, review by <date> | remove
-```
+The findings fill the End-of-life warning section of the report.
 
 ## Recommend
 
@@ -215,6 +183,15 @@ Support schedule: <one line> — <url>
 ### New requirements for <recommended version>
 | requirement | kind | since | present in image | source (url — "quoted line") | remedy |
 |---|---|---|---|---|---|
+
+### End-of-life warning: <package>   (present only when raised)
+Line <x.y> ends <date>; newest release <ver> (<date>) is on that line; calendar: <none | url>.
+Reason: <archived | dormant since <date> | announced at <url>> — "<quoted line>"
+| replacement | url | last release | licence | delta against <package> |
+|---|---|---|---|---|
+| image | file:line | kind |
+|---|---|---|
+Options for the user: replace with <name> | keep <ver> pinned, review by <date> | remove
 
 ### Recommendation
 <version> — <one sentence>. Moves with it: <peer -> version, ...>.

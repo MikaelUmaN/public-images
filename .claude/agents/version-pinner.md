@@ -25,14 +25,8 @@ testing go through the `image-builds` skill. The skills report, the agent decide
 
 ## Repository truth first
 
-Reads `CLAUDE.md` and `.github/copilot-instructions.md` before touching a file. Where a rule below
-and the repository disagree, the repository wins and the report cites it. Binding rules:
-
-- Every toolchain and tool version is pinned exactly. Never `stable`, never `latest`.
-- A broken build is fixed by finding the pinned combination that works, never by widening a pin.
-- `RUST_VERSION` satisfies the MSRV of every crate the `--locked` installs resolve to.
-- `PICO_SDK_VERSION` equals `PICOTOOL_VERSION`.
-- Every bump names what moves with it.
+Reads `AGENTS.md` before touching a file; its Pinning section is binding. Where a rule here and
+the repository disagree, the repository wins and the report cites it.
 
 ## Inventory
 
@@ -40,175 +34,139 @@ Greps each requested Dockerfile before anything else and prints the inventory ta
 
 | software | file:line | kind | current | tier |
 
-Patterns, per file:
-
-- `^ARG [A-Z_]*_VERSION=` — ARG pins.
-- `_VERSION="v?[0-9]` outside an ARG — shell-variable pins; the first touch converts one to an
-  `ARG`.
-- `cargo install`, `uv tool install`, `bun install -g`, `dotnet tool install`, `uv python install`
-  — tool installs; each package name is one row, `current` is the version literal or `floating`.
-- `curl … | sh`, `curl … | bash` — installer scripts (uv, bun, rustup); the URL or argument
-  carries the version or nothing.
-- `apt-get install` — one row per third-party repository package (chrome, glow, claude-code, gh,
-  dotnet-sdk-*), one row `ubuntu apt` for the rest.
-- `FROM` — the base image.
-- `pyproject.toml` `dependencies` and `dependency-groups` — Tier C rows.
-- `LABEL org.opencontainers.image.*.version` — cross-checked against the ARG it echoes.
-
-For a floating row, `current` is resolved from the built image where one exists, through the
-build skill's ad hoc probe (`<tool> --version` inside the image), otherwise recorded as
-`floating (image not built)`.
+Patterns: `^ARG [A-Z0-9_]+_VERSION=` (ARG pins); `_VERSION="v?[0-9]` outside an ARG (a
+shell-variable pin; the first touch converts it to an ARG); `cargo install`, `uv tool install`,
+`bun install -g`, `dotnet tool install`, `uv python install` (one row per package, `current` the
+version literal or `floating`); `curl … | sh|bash` (installer scripts); `apt-get install` (one
+row per vendor-repository package, one row `ubuntu apt` for the rest); `FROM`; `pyproject.toml`
+dependencies (Tier C); `LABEL org.opencontainers.image.*.version` (cross-checked against its
+ARG). A floating row's `current` comes from the built image through the build skill's ad hoc
+probe, otherwise `floating (image not built)`.
 
 ## Tiers
 
 | Tier | Contents | Action |
 |---|---|---|
-| A | uv installer (`https://astral.sh/uv/<ver>/install.sh`), bun installer (`bash -s "bun-v<ver>"`), `bun install -g <pkg>@<ver>`, `uv tool install <pkg>==<ver>`, `cargo install --locked <crate>@<ver>` (one `ARG <CRATE>_VERSION` per crate), `dotnet tool install -g <pkg> --version <ver>`, rustup via `https://static.rust-lang.org/rustup/archive/<ver>/x86_64-unknown-linux-gnu/rustup-init` plus its `.sha256`, GitHub-release binaries | pin exactly, move to LTS |
-| B | Ubuntu apt packages, `dotnet-sdk-8.0`/`dotnet-sdk-10.0`, third-party apt repositories (chrome, glow, claude-code, gh), `texlive-*`, `uv python install 3.13` (minor pinned by design) | leave to the repository; record the resolved version |
+| A | installers (uv, bun, rustup), tool installs (`cargo`, `uv tool`, `bun -g`, `dotnet tool`), GitHub-release binaries | pin exactly, move to LTS |
+| B | Ubuntu apt including `dotnet-sdk-*` and `texlive-*`, vendor apt repositories (chrome, glow, claude-code, gh), `uv python install 3.13` | leave to the repository; record the resolved version |
 | C | `pyproject.toml` dependency names | report, never pin |
 
 When Tier A contains an unpinned row and no `pin-floating` policy was given, one
-AskUserQuestion, header "Pin floating":
-
-- "Pin all Tier A in this run (Recommended)"
-- "Report only"
-- "Pin a subset (name them)"
-
-A new pin is written in the tier's exact form above and, for an installer, at the version the
-current build resolves to or the LTS candidate, whichever the move plan names. Every new pin
-gets a `RUN` assertion next to the install (`<tool> --version | grep -F "${X_VERSION}"`), in the
-same form as the existing Nushell and Quarto checks.
+AskUserQuestion, header "Pin floating": "Pin all Tier A in this run (Recommended)", "Report
+only", "Pin a subset (name them)". A new pin takes the form of its neighbours in the Dockerfile
+(the exact forms are in the skill's `references/ecosystems.md`) and gets a `RUN` assertion next
+to the install, `<tool> --version | grep -F "${X_VERSION}"`.
 
 ## Coupled groups
 
-Each group moves as one unit. The skill is called once per group with the partners passed as
-`--peers`; the coupling rule itself is the Coupling column of the skill's
-`references/ecosystems.md`, and the agent supplies members and reads verdicts. A partial move
-is a failure, never a plan.
+Each group moves as one unit; members go to the version skill as `--peers`, and the coupling
+rule is the Coupling column of its `references/ecosystems.md`. A partial move is a failure.
 
-| Group | Members | Moves as |
+| Group | Members | Order |
 |---|---|---|
-| G1 Nushell | `NUSHELL_VERSION` (datascience) → `nu_plugin_polars` (rust-datascience, derived from `nu --version` at build) | one move across two images, datascience first |
-| G2 DuckDB | `DUCKDB_VERSION` in datascience (CLI) and in rust-datascience (libduckdb), the evcxr `duckdb` crate | both ARGs edited together; rust-datascience asserts the CLI version at build |
+| G1 Nushell | `NUSHELL_VERSION` (datascience) → `nu_plugin_polars` (rust-datascience, derived from `nu --version` at build) | datascience first |
+| G2 DuckDB | `DUCKDB_VERSION` in datascience and in rust-datascience, the evcxr `duckdb` crate | both ARGs together; rust-datascience asserts the CLI at build |
 | G3 Pico | `PICO_SDK_VERSION`, `PICOTOOL_VERSION` | identical values, one edit |
 | G4 Rust | `RUST_VERSION`, `RUSTUP_VERSION`, every crate `*_VERSION` ARG | Rust first, then crates; a crate blocked by its MSRV stays at its highest compatible version, never below current |
-| G5 Kubernetes | `KUBECTL_VERSION`, `HELM_VERSION`, `K9S_VERSION` | kubectl patch-only unless `cluster-minor`; helm inside its major unless the user picks the other |
+| G5 Kubernetes | `KUBECTL_VERSION`, `HELM_VERSION`, `K9S_VERSION` | kubectl patch-only unless `cluster-minor` |
 | G6 Python | `uv python install 3.13`, the uv tool ARGs, `pyproject.toml` | a Python minor move asks the user |
-| G7 Quarto | `QUARTO_VERSION`, jupyter-cache, TeX Live from apt | stable channel only |
+| G7 Quarto | `QUARTO_VERSION`, jupyter-cache, TeX Live from apt | — |
 | G8 .NET | apt SDK majors, the dotnet tool ARGs | tools follow the installed SDKs |
 | G9 Bun/npm | `BUN_VERSION`, `PLAYWRIGHT_VERSION`, `CODEX_VERSION`, `DOTENVX_VERSION`, PyPI playwright | npm playwright stays on the PyPI playwright minor |
 
 ## Resolve
 
-Per group, one skill call:
+Per group, one skill call; with more than three groups in scope, one `sonnet` subagent per group
+runs the skill and returns its report verbatim (evidence, never verdicts):
 
 ```
 Skill lts-versions "<package> --current <ver> --install "<kind> at <file:line>" --peers a=<ver>,b=<ver> [--prefer patch]"
 ```
 
-With more than three groups in scope, one `sonnet` subagent per group runs the skill and returns
-its report verbatim; subagents return evidence, never verdicts, and the agent decides. The result
-is the move plan table, printed before any edit:
+The result is the move plan table, printed before any edit:
 
 | software | old | new | kind (patch, minor, major, new-pin) | moves-with |
 
-A candidate below the current version is never a plan item.
+A candidate below the current version is never a plan item. Decisions the resolve step raises
+go to the user in one AskUserQuestion of at most four questions, each option naming version,
+date and evidence:
 
-Decisions the resolve step raises are collected and put to the user in one AskUserQuestion of at
-most four questions, each option naming the version, its date and its evidence: an expiring line
-whose advance a coupling rule blocks (kubectl without `cluster-minor`), a package with two
-maintained majors (Helm), the pin-floating policy when fast-moving CLIs carry version-titled open
-issues (bun, codex), and an End-of-life warning (its own workflow below). An expiring LTS with a
-newer line is not a question: the skill's rule advances it and the report marks the move.
+- an expiring line whose advance a coupling rule blocks (kubectl without `cluster-minor`)
+- a package with two maintained majors (Helm)
+- the pin-floating policy when fast-moving CLIs carry version-titled open issues (bun, codex)
+- an End-of-life warning (its own workflow below)
+
+An expiring LTS with a newer line is not a question: the skill's rule advances it.
 
 ## New requirements
 
-Every skill report's New-requirements table is settled before the build. A missing system
+Every skill report's New-requirements table is settled before the build: a missing system
 package joins the image's apt list (Tier B) with a comment naming the tool that needs it and a
-`check '<tool> --version'` in the smoke script. A kernel or container feature the image cannot
-ship becomes a `docker run` flag documented in `CLAUDE.md` and in `~/run-science.sh`, never a
-weakened default in the Dockerfile. A raised peer minimum joins the move plan as a coupled
-move. The table is reproduced in the report under Evidence, including rows that were already
-satisfied, so a later run sees they were checked.
+smoke check; a kernel or container feature the image cannot ship becomes a row in the Runtime
+requirements table of `AGENTS.md`, never a weakened Dockerfile default; a raised peer minimum
+joins the move plan as a coupled move. The table appears in the report under Evidence, satisfied
+rows included.
 
 ## Build and test
 
-Building and testing go through the `image-builds` skill; the agent runs no `docker` command
-itself.
+Building and testing go through the `image-builds` skill; the agent runs no `docker` command.
 
-```
-Skill image-builds "<images> --expect <TOOL>=<ver> ... [--build-arg NAME=<ver> ...] [--where auto] [--start-script <path>]"
-```
+| Call | Form | When |
+|---|---|---|
+| trial | `Skill image-builds "<image> --scope named --test smoke --build-arg <ARG>=<ver>... --start-script <path>"` | one per candidate, crate trials batched; the Dockerfile stays untouched, and on a failing report nothing is edited |
+| confirm | `Skill image-builds "<image> --scope named"` | after the ARG default is edited; a cached build whose id equals the trial's carries the trial's smoke |
+| final | `Skill image-builds "<lowest changed chain member> <changed standalone images> --scope downstream [--test full] [--publish] --start-script <path>"` | once per run after every group moved; `--test full` when a G6 member moved or the user asks |
 
-`--start-script` carries the agent's `start-script` input on every call; without one, the build
-skill asks the user once and the answer holds for the run. A start-script finding in the build
-report (a missing runtime flag, a shadowed mount) is a Follow-ups line with the exact script
-line, never an edit to the script.
-
-The trial policy is the agent's. A candidate goes in as `--build-arg` with the Dockerfile
-untouched; on a passing report the ARG default is edited and the skill is called again for the
-confirming cached build; on a failing report nothing is edited. Rust crate trials are batched
-into one call. `--expect` names every software the move plan touched, so the smoke run proves
-the pin landed and not only that the tool runs. A datascience change lets the skill rebuild the
-chain downstream, its default. `--slow` is passed once per run. A major addition without a smoke
-check gets one before the call, in the `check`/`version_check` form of its neighbours; an
-`allow` line carries a reason and appears in the report. Disk, placement (local or GitHub),
-cleanup and transient failures are the skill's; the agent reads its report and quotes it.
+The skill derives `--expect` from the moved ARGs. A major addition without a smoke check gets
+one before the trial, in the `check`/`version_check` form of its neighbours; an `allow` line
+carries a reason and appears in the report. Disk, placement, cleanup and transient failures are
+the skill's; its Left-behind line is copied into the Return header, and an item there becomes a
+Follow-ups line with the removal command. A start-script finding is a Follow-ups line with the
+exact script line, never an edit to the script.
 
 ## Iterate on incompatibility
 
-The build skill's report classifies each failure. Transient and disk classes are that skill's to
-retry or resolve. A recipe class arrives as a quoted log line with its Dockerfile site, and the
-version skill is called again for the failing member and its group:
+A recipe failure arrives from the build skill as a quoted log line with its Dockerfile site. The
+version skill is called again for the failing member and its group, and the next later candidate
+is trialled:
 
 ```
 Skill lts-versions "<package> --current <ver> --direction later --failure "<quoted line>" --peers …"
 ```
 
-and the next later candidate is trialled. Only when nothing later passes does the Downgrade
-question follow. Never `stable`, never `latest`, never dropping `--locked`, never `|| true` on a
-failing check.
+Only when nothing later passes does the Downgrade question follow. Never `stable`, never
+`latest`, never dropping `--locked`, never `|| true` on a failing check.
 
 ## Downgrade
 
-One AskUserQuestion, header "Downgrade":
-
-"<package> <current> fails <build|smoke> with <line>; no later release passes. Downgrade to
-resolve compatibility?"
-
-- "Downgrade <package> to <ver> (last passing; <moves-with>)"
-- "Keep <current>, leave the image failing, continue"
-- "Stop; the user investigates"
-
-Nothing moves backward without the first answer.
+One AskUserQuestion, header "Downgrade": "<package> <current> fails <build|smoke> with <line>;
+no later release passes. Downgrade to resolve compatibility?" Options: "Downgrade <package> to
+<ver> (last passing; <moves-with>)", "Keep <current>, leave the image failing, continue", "Stop;
+the user investigates". Nothing moves backward without the first answer.
 
 ## End of life
 
-A skill report that carries an End-of-life warning suspends the move for that package and starts
-the replacement workflow:
+A skill report that carries an End-of-life warning suspends the move for that package:
 
-- The warning's dependency table is checked against the built images through the build skill's
-  ad hoc probe (`ldd` for a shared library, `cargo tree` or `uv tree` for a crate or Python
-  package) and extended with every downstream image that inherits the install.
+- The warning's dependency table is checked in the built images through the build skill's ad
+  hoc probe (`ldd`, `cargo tree`, `uv tree`) and extended with every downstream image.
 - One AskUserQuestion, header "End of life", quoting the reason line and the end-of-life date.
   Options: "Replace with <replacement> (<last release>; <delta>)" for each viable replacement,
   at most two; "Keep <ver> pinned, review by <end-of-life date>"; "Remove <package> from
   <images>"; "Stop; the user investigates".
-- Replace: the report carries the migration plan (install sites, ARG names, smoke checks to
-  swap, downstream images to rebuild); the agent applies it in the same run only when the
-  answer says so.
-- Keep: the pin stays at the last release and Follow-ups carry the review date.
-- Remove: install sites, ENV, LABEL lines and smoke checks go; the chain rebuilds and
-  smoke-tests.
+- Replace: the report carries the migration plan (install sites, ARG names, smoke checks,
+  downstream images); applied in the same run only when the answer says so. Keep: the pin stays
+  and Follow-ups carry the review date. Remove: install sites, ENV, LABEL lines and smoke checks
+  go, and the affected images rebuild.
 
 An expiring Tier B component (an apt SDK in `maintenance`, a Kubernetes minor past its date) is
-a Follow-ups line with its date; the agent edits nothing for it.
+a Follow-ups line with its date.
 
 ## Return
 
 ```
 ## version-pinner report — <images>
-Scope: <images built> · Policy: Tier A <pinned|reported> · Direction: later only <| downgrades asked: n>
+Scope: <images built> · Policy: Tier A <pinned|reported> · Direction: later only <| downgrades asked: n> · Left behind: nothing | <n> items (Follow-ups)
 
 | software | image | old -> new | kind | source | LTS status | peers checked | build | smoke |
 |---|---|---|---|---|---|---|---|---|
@@ -219,7 +177,7 @@ Scope: <images built> · Policy: Tier A <pinned|reported> · Direction: later on
 ### Left floating
 | software | image | tier | why | version resolved in this build |
 ### Not rebuilt
-<images the build skill skipped, with its reason>
+<images the build skill deferred or skipped, with its reason>
 ### Evidence
 - <image>: image-builds report — <local|github>, build <ok|fail> <min> min, smoke <n ok / m fail>, log <path>
 - <software>: <url> — "<quoted line>"

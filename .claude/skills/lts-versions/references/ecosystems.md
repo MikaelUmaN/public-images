@@ -4,9 +4,7 @@ One row per ecosystem or package the repository installs: where releases are pub
 command that lists them, what "long-term stable" means there, and which coupled group in the
 `version-pinner` agent it belongs to.
 
-The maturity gate (SKILL.md, "Apply the LTS rule") applies wherever the LTS notion says "gate":
-full release, first release of the minor line at least 14 days old, highest patch in its line, no
-open issue naming the version.
+"gate" in the LTS notion column is the maturity gate of SKILL.md, "Apply the LTS rule".
 
 crates.io requires a User-Agent that identifies the caller:
 

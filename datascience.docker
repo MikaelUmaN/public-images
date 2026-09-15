@@ -31,7 +31,7 @@ ENV PLAYWRIGHT_CHROME_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
 # BROWSER=none keeps `gh auth login` printing the URL instead of spawning xdg-open; most
 # terminals make printed URLs Ctrl+Click-openable. A host browser IS reachable for headed
-# viewing when the container is started with the WSLg socket mounts documented in CLAUDE.md
+# viewing when the host forwards a display into the container (see AGENTS.md, Runtime requirements)
 # (headed HTML is opened by invoking google-chrome-stable directly, not via xdg-open).
 ENV BROWSER=none
 
@@ -51,7 +51,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   ncurses-term \
   sqlite3 libsqlite3-dev \
   linux-tools-generic \
-  # Runtime libraries for host-mounted perf binary (WSL2 setup per CLAUDE.md)
+  # Runtime libraries for a host-mounted perf binary (see AGENTS.md, Runtime requirements)
   libdw1 libunwind8 libslang2 libbabeltrace1 libtraceevent1 libdebuginfod1 libpfm4 \
   ca-certificates libnss3 gpg gpg-agent \
   build-essential \
@@ -66,7 +66,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   # google-chrome-stable Depends, so they are not repeated here.
   libgl1 libegl1 libgl1-mesa-dri mesa-vulkan-drivers dbus-x11 fonts-noto-core fonts-noto-color-emoji \
   # Codex CLI's default filesystem sandbox (bwrap 0.9.0 carries --argv0). User namespaces
-  # inside a container need --security-opt seccomp=unconfined at run time, see CLAUDE.md.
+  # inside a container need --security-opt seccomp=unconfined at run time, see AGENTS.md.
   bubblewrap && \
   # Add Google Chrome repository (for Playwright browser automation)
   mkdir -p /etc/apt/keyrings && \

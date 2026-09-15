@@ -1,0 +1,20 @@
+#!/bin/bash
+# Rejects a commit that changes CLAUDE.md away from the pointer to AGENTS.md, or that adds
+# .github/copilot-instructions.md back. Activated per clone with:
+#   git config core.hooksPath .githooks
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+staged="$(git diff --cached --name-only --diff-filter=AM)"
+
+if grep --quiet --line-regexp 'CLAUDE.md' <<< "$staged"; then
+  if ! diff <(git show :CLAUDE.md) "$root/.githooks/CLAUDE.md.canonical" > /dev/null; then
+    echo "CLAUDE.md is a pointer to AGENTS.md; edit AGENTS.md instead" >&2
+    exit 1
+  fi
+fi
+
+if grep --quiet --line-regexp '.github/copilot-instructions.md' <<< "$staged"; then
+  echo ".github/copilot-instructions.md was merged into AGENTS.md; do not re-create it" >&2
+  exit 1
+fi
