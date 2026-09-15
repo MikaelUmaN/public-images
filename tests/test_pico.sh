@@ -1,6 +1,5 @@
 #!/bin/bash
 # Test the Raspberry Pi Pico toolchain (run inside mikaeluman/pico:latest).
-# Standalone - not part of run_all_tests.sh, which targets the datascience chain.
 set -e
 
 echo "=== Pico Toolchain Test ==="

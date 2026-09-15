@@ -15,6 +15,7 @@ version_check k9s k9s version
 version_check helm helm version --short
 check 'duckdb select 42' duckdb -c 'select 42'
 
+check 'user bin dir on PATH' bash -c 'case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) echo "PATH lacks $HOME/.local/bin: $PATH"; exit 1 ;; esac'
 version_check uv uv --version
 check 'uv python 3.13 installed' bash -c 'uv python list --only-installed | grep -F cpython-3.13'
 version_check bun bun --version
@@ -29,9 +30,33 @@ version_check jupyterlab jupyter-lab --version
 version_check pre_commit pre-commit --version
 version_check py_spy py-spy --version
 
+check 'PLAYWRIGHT_CHROME_EXECUTABLE_PATH is executable' test -x "$PLAYWRIGHT_CHROME_EXECUTABLE_PATH"
 allow 'Failed to connect to the bus|dbus' 'no session bus in a container'
 allow '/etc/machine-id contains 0 characters' 'no machine-id in a container'
 check 'chrome headless screenshot' google-chrome-stable --headless=new --no-sandbox --screenshot="$WORK/s.png" about:blank
+
+
+# Resolution of the global playwright package needs the global install directory as cwd.
+bun_playwright_drives_chrome() {
+  cd "$HOME/.bun/install/global" && bun -e '
+    import { chromium } from "playwright";
+    const browser = await chromium.launch({ channel: "chrome", headless: true });
+    const page = await browser.newPage();
+    await page.goto("data:text/html,<h1>smoke</h1>");
+    const text = await page.textContent("h1");
+    console.log(browser.version(), text);
+    await browser.close();
+    if (text !== "smoke") process.exit(1);'
+}
+check 'bun playwright drives system chrome' bun_playwright_drives_chrome
+
+# perf is a host binary mounted at run time; its shared libraries come from the image.
+if [[ -x /usr/local/bin/perf ]]; then
+  check 'perf version' /usr/local/bin/perf version
+  check 'perf shared libraries resolve' bash -c '! ldd /usr/local/bin/perf | grep -F "not found"'
+else
+  echo 'skip   perf (host binary not mounted at /usr/local/bin/perf)'
+fi
 
 check 'bwrap --version' bwrap --version
 check 'claude --version' claude --version
@@ -40,6 +65,15 @@ check 'glow --version' glow --version
 
 if [[ "${SMOKE_SLOW:-0}" == 1 ]]; then
   check 'uv sync and core imports' bash -c 'cd "$HOME/jupyter" && uv sync --quiet && uv run python -c "import pandas, polars, numpy, torch, duckdb, sklearn; print(torch.__version__)"'
+  check 'python playwright drives system chrome' bash -c 'cd "$HOME/jupyter" && uv run python -c "
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    b = p.chromium.launch(channel=\"chrome\", headless=True)
+    pg = b.new_page()
+    pg.goto(\"data:text/html,<h1>smoke</h1>\")
+    assert pg.text_content(\"h1\") == \"smoke\"
+    print(b.version)
+    b.close()"'
 fi
 
 finish
