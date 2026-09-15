@@ -1,8 +1,8 @@
 ---
 name: lts-versions
-description: Finds the canonical release source for one software package, lists its versions, applies the repository's long-term-stable rule to pick a candidate, and reports known compatibility issues against named peers as URLs and quoted lines. Use when choosing a version to pin, checking whether a pin is stale, or diagnosing a failed build after a version change.
+description: Finds the canonical release source for one software package, lists its versions, applies the repository's long-term-stable rule to pick a candidate, and reports known compatibility issues against named peers as URLs and quoted lines; for a package whose support line is ending with nothing newer released, gathers why, what could replace it and where the images depend on it. Use when choosing a version to pin, checking whether a pin is stale, diagnosing a failed build after a version change, or deciding what to do with a package at end of life.
 user-invocable: true
-argument-hint: "<package> --current <version> --install <how> [--peers name=version,...] [--prefer patch|line] [--direction later|earlier] [--failure <quoted log line>]"
+argument-hint: "<package> --current <version> --install <how> [--peers name=version,...] [--prefer patch|line] [--direction later|earlier] [--failure <quoted log line>] [--eol]"
 compatibility: Linux with curl, jq and an authenticated gh. Network access to the endpoints in references/ecosystems.md.
 ---
 
@@ -25,6 +25,7 @@ with WebFetch. An unreachable source is reported as unreachable, never guessed a
 | `--prefer patch\|line` | which candidate to recommend when both pass; default `line` |
 | `--direction later\|earlier` | `earlier` is honored only together with `--failure` |
 | `--failure "<line>"` | the quoted build or smoke log line that triggered this call |
+| `--eol` | runs the End-of-life investigation whatever the support window says |
 
 `--direction earlier` without `--failure` is refused: the report states the refusal under
 Recommendation and stops. With `--failure`, every candidate below `--current` is marked
@@ -45,17 +46,32 @@ plus whatever constraint the registry exposes: `rust_version` (crates.io), `engi
 
 ## Apply the LTS rule
 
-Where a real support window exists, it decides:
+Where the project publishes support windows (an LTS flag, an end-of-life date, a support phase),
+they decide, in this order:
 
-- .NET: `release-type: lts` and `support-phase: active`.
+- The candidate is the LTS line with the highest version number, at its highest patch.
+- An LTS line is *expiring* when its end-of-life lies within six months. An expiring line is
+  left as soon as any newer release line exists, LTS or not: the candidate becomes the highest
+  patch of the newest line, marked `expiring LTS -> newer line`, with the next planned release
+  from the project's calendar named beside it so the next run can return to an LTS.
+- An expiring line with no newer release line anywhere (no later tag, no other channel, nothing
+  on the release calendar) marks the package *end-of-life suspect*: the End-of-life
+  investigation below runs, the report carries a warning the user has to act on, and no
+  candidate is recommended.
+- A coupling rule outranks the advance. When the newer line is blocked by a peer (kubectl by
+  the cluster skew, a crate by `RUST_VERSION`), the report names the conflict and the caller
+  puts it to the user.
+
+Per project:
+
+- .NET: `release-type: lts` and `support-phase: active`; a `maintenance` LTS is expiring.
 - Python: the minor with at least twelve months to end-of-life and `cp313`-class wheels for
   torch, numba and pymc.
 - kubectl: the highest patch within the current minor; a minor move needs `cluster-minor` from
   the caller.
 - Quarto: the stable channel only.
-- DuckDB: the line marked `lts` in `duckdb-releases.csv`, highest patch. When that line's
-  `end_of_life` lies within 30 days and the CSV lists no successor LTS line, the report asks the
-  user whether to take the last LTS patch, the current non-LTS line, or to wait.
+- DuckDB: the `lts` and `end_of_life` columns of `duckdb-releases.csv`; the release calendar
+  for planned lines.
 - Helm: 3.x and 4.x are maintained in parallel; the recommendation stays inside the current
   major and names the other major's candidate for the user.
 - Ubuntu: fixed at 24.04.
@@ -102,6 +118,44 @@ plus the release notes of the recommended version, read for "known issues" and "
 
 ```
 gh issue list -R <owner/repo> --state all --search "<distinctive fragment of the line>" --limit 10
+```
+
+## Investigate end of life
+
+Runs for an end-of-life suspect and on `--eol`. Three questions, each answered with evidence:
+
+- **Reason.** `gh api repos/<o>/<r> --jq '{archived, pushed_at, open_issues_count}'`; the date
+  of the last release and of the last commit on the default branch; README and release notes
+  read for "maintenance", "deprecated", "archived", "successor";
+  `gh issue list -R <o/r> --state all --search "maintained OR deprecated OR successor OR archive in:title" --limit 10`;
+  the registry's own deprecation text (npm `deprecated`, PyPI yanked reasons, crates.io yanked,
+  NuGet `deprecation`). The finding is one of: archived, dormant since `<date>`, maintainers
+  announced end of life at `<url>`, or active with no successor line planned.
+- **Forks and replacements.**
+  `gh api "repos/<o>/<r>/forks?sort=stargazers&per_page=10" --jq '.[] | "\(.full_name)\t\(.stargazers_count)\t\(.pushed_at)"'`,
+  keeping forks pushed within six months; projects named as successors in the README, the
+  archive notice or the issues; registry packages offering the same interface. Each row names
+  the project, its URL, last release, licence, and what it drops or adds against the package.
+- **Dependencies in the images.** Every site in the repository that names the package or its
+  artefacts: `grep -n` over `*.docker`, `pyproject.toml`, `init.evcxr` and `tests/`, plus the
+  `FROM` chain that inherits the install. Each row: image, `file:line`, kind (install, ENV,
+  LABEL, library consumer, smoke check). Consumers inside a built image are the caller's to
+  verify; the skill reads the repository, not the images.
+
+The findings are appended to the standard report:
+
+```
+### End-of-life warning: <package>
+Line <x.y> ends <date>; newest release <ver> (<date>) is on that line; calendar: <none | url>.
+Reason: <archived | dormant since <date> | announced at <url>> — "<quoted line>"
+
+| replacement | url | last release | licence | delta against <package> |
+|---|---|---|---|---|
+
+| image | file:line | kind |
+|---|---|---|
+
+Options for the user: replace with <name> | keep <ver> pinned, review by <date> | remove
 ```
 
 ## Recommend

@@ -43,8 +43,8 @@ Greps each requested Dockerfile before anything else and prints the inventory ta
 Patterns, per file:
 
 - `^ARG [A-Z_]*_VERSION=` — ARG pins.
-- `_VERSION="v?[0-9]` outside an ARG — shell-variable pins (today `rust-datascience.docker` sets
-  `DUCKDB_VERSION` inside a `RUN`).
+- `_VERSION="v?[0-9]` outside an ARG — shell-variable pins; the first touch converts one to an
+  `ARG`.
 - `cargo install`, `uv tool install`, `bun install -g`, `dotnet tool install`, `uv python install`
   — tool installs; each package name is one row, `current` is the version literal or `floating`.
 - `curl … | sh`, `curl … | bash` — installer scripts (uv, bun, rustup); the URL or argument
@@ -82,19 +82,21 @@ same form as the existing Nushell and Quarto checks.
 ## Coupled groups
 
 Each group moves as one unit. The skill is called once per group with the partners passed as
-`--peers`. A partial move is a failure, never a plan.
+`--peers`; the coupling rule itself is the Coupling column of the skill's
+`references/ecosystems.md`, and the agent supplies members and reads verdicts. A partial move
+is a failure, never a plan.
 
-| Group | Members | Rule |
+| Group | Members | Moves as |
 |---|---|---|
-| G1 Nushell | `NUSHELL_VERSION` (datascience) → `nu_plugin_polars` (rust-datascience; version derived from `nu --version` at build) | the plugin exists on crates.io at the identical version with `rust_version <= RUST_VERSION`; crosses datascience → rust-datascience |
-| G2 DuckDB | `DUCKDB_VERSION` (datascience) + the libduckdb shell variable in `rust-datascience.docker` + `libduckdb-sys` crate consumers (evcxr `duckdb` dep) | CLI == libduckdb; the first touch converts the shell variable to `ARG DUCKDB_VERSION` |
-| G3 Pico | `PICO_SDK_VERSION` == `PICOTOOL_VERSION` | identical tag present in both repositories |
-| G4 Rust | `RUST_VERSION` ≥ max MSRV over every `--locked` crate at its resolved version | Rust moves first, then tools; a tool whose MSRV exceeds the candidate stays at its highest compatible version, never below current |
-| G5 Kubernetes | kubectl (skew ±1 minor against the cluster), helm (supports n..n-3), k9s | kubectl patch-only unless `cluster-minor` given |
-| G6 Python | `uv python install 3.13` vs torch/numba/pymc `cp313` wheels; jupyterlab vs ipywidgets/ipykernel | a Python minor move asks the user |
-| G7 Quarto | `QUARTO_VERSION` vs the stable channel; jupyter-cache/nbclient; TeX Live from apt | stable channel only |
-| G8 .NET | apt SDK majors vs the dotnet tools' target frameworks | tools target net8.0 or net10.0 |
-| G9 Bun/npm | bun vs `engines` of playwright, @openai/codex, @dotenvx/dotenvx; npm playwright vs PyPI playwright major | report the npm/PyPI skew |
+| G1 Nushell | `NUSHELL_VERSION` (datascience) → `nu_plugin_polars` (rust-datascience, derived from `nu --version` at build) | one move across two images, datascience first |
+| G2 DuckDB | `DUCKDB_VERSION` in datascience (CLI) and in rust-datascience (libduckdb), the evcxr `duckdb` crate | both ARGs edited together; rust-datascience asserts the CLI version at build |
+| G3 Pico | `PICO_SDK_VERSION`, `PICOTOOL_VERSION` | identical values, one edit |
+| G4 Rust | `RUST_VERSION`, `RUSTUP_VERSION`, every crate `*_VERSION` ARG | Rust first, then crates; a crate blocked by its MSRV stays at its highest compatible version, never below current |
+| G5 Kubernetes | `KUBECTL_VERSION`, `HELM_VERSION`, `K9S_VERSION` | kubectl patch-only unless `cluster-minor`; helm inside its major unless the user picks the other |
+| G6 Python | `uv python install 3.13`, the uv tool ARGs, `pyproject.toml` | a Python minor move asks the user |
+| G7 Quarto | `QUARTO_VERSION`, jupyter-cache, TeX Live from apt | stable channel only |
+| G8 .NET | apt SDK majors, the dotnet tool ARGs | tools follow the installed SDKs |
+| G9 Bun/npm | `BUN_VERSION`, `PLAYWRIGHT_VERSION`, `CODEX_VERSION`, `DOTENVX_VERSION`, PyPI playwright | npm playwright stays on the PyPI playwright minor |
 
 ## Resolve
 
@@ -113,14 +115,11 @@ is the move plan table, printed before any edit:
 A candidate below the current version is never a plan item.
 
 Decisions the resolve step raises are collected and put to the user in one AskUserQuestion of at
-most four questions, each option naming the version, its date and its evidence: a coupled line
-near end-of-life with no successor (DuckDB), a package with two maintained majors (Helm), a
-skew-bound tool whose cluster is unknown (kubectl), and the pin-floating policy when fast-moving
-CLIs carry version-titled open issues (bun, codex).
-
-Registry lookups run as batched `curl`/`gh` scripts written to the scratchpad; the local
-secret-file guard rejects a Bash command whose text contains `.key`, so jq filters over
-`to_entries` index the pair (`[.[]] | select(.[0] | …)`) instead of naming the field.
+most four questions, each option naming the version, its date and its evidence: an expiring line
+whose advance a coupling rule blocks (kubectl without `cluster-minor`), a package with two
+maintained majors (Helm), the pin-floating policy when fast-moving CLIs carry version-titled open
+issues (bun, codex), and an End-of-life warning (its own workflow below). An expiring LTS with a
+newer line is not a question: the skill's rule advances it and the report marks the move.
 
 ## Apply and build
 
@@ -204,6 +203,28 @@ resolve compatibility?"
 
 Nothing moves backward without the first answer.
 
+## End of life
+
+A skill report that carries an End-of-life warning suspends the move for that package and starts
+the replacement workflow:
+
+- The warning's dependency table is checked against the built images (`ldd` for a shared
+  library, `cargo tree` or `uv tree` for a crate or Python package) and extended with every
+  downstream image that inherits the install.
+- One AskUserQuestion, header "End of life", quoting the reason line and the end-of-life date.
+  Options: "Replace with <replacement> (<last release>; <delta>)" for each viable replacement,
+  at most two; "Keep <ver> pinned, review by <end-of-life date>"; "Remove <package> from
+  <images>"; "Stop; the user investigates".
+- Replace: the report carries the migration plan (install sites, ARG names, smoke checks to
+  swap, downstream images to rebuild); the agent applies it in the same run only when the
+  answer says so.
+- Keep: the pin stays at the last release and Follow-ups carry the review date.
+- Remove: install sites, ENV, LABEL lines and smoke checks go; the chain rebuilds and
+  smoke-tests.
+
+An expiring Tier B component (an apt SDK in `maintenance`, a Kubernetes minor past its date) is
+a Follow-ups line with its date; the agent edits nothing for it.
+
 ## Return
 
 ```
@@ -214,6 +235,8 @@ Scope: <images built> · Policy: Tier A <pinned|reported> · Direction: later on
 |---|---|---|---|---|---|---|---|---|
 
 ### Decisions asked
+### End of life
+| software | line ends | moved to | or: warning (reason, replacements, dependencies) |
 ### Left floating
 | software | image | tier | why | version resolved in this build |
 ### Not rebuilt
