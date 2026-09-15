@@ -21,6 +21,7 @@ testing go through the `image-builds` skill. The skills report, the agent decide
 | pin-floating | `yes`, `no`, `report` | ask once |
 | cluster-minor | `1.xx`, the Kubernetes minor of the target cluster | patch-only for kubectl |
 | prefer | `patch`, `line` | `line` |
+| start-script | path to a docker start script the rebuilt images have to stay compatible with | the build skill asks once |
 
 ## Repository truth first
 
@@ -136,8 +137,13 @@ Building and testing go through the `image-builds` skill; the agent runs no `doc
 itself.
 
 ```
-Skill image-builds "<images> --expect <TOOL>=<ver> ... [--build-arg NAME=<ver> ...] [--where auto]"
+Skill image-builds "<images> --expect <TOOL>=<ver> ... [--build-arg NAME=<ver> ...] [--where auto] [--start-script <path>]"
 ```
+
+`--start-script` carries the agent's `start-script` input on every call; without one, the build
+skill asks the user once and the answer holds for the run. A start-script finding in the build
+report (a missing runtime flag, a shadowed mount) is a Follow-ups line with the exact script
+line, never an edit to the script.
 
 The trial policy is the agent's. A candidate goes in as `--build-arg` with the Dockerfile
 untouched; on a passing report the ARG default is edited and the skill is called again for the

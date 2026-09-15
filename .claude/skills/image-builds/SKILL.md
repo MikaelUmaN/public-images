@@ -26,6 +26,7 @@ live in `scripts/`; image facts in `references/images.md`.
 | `--no-downstream` | build only the named images |
 | `--publish` | allow the GitHub build to push to Docker Hub; without it CI runs with `push=false` |
 | `--branch <name>` | branch for GitHub builds; default the current branch |
+| `--start-script <path>` | a docker start script the built images have to stay compatible with; without it a standalone run asks once |
 
 `all` is the chain plus `latex` and `pico`. A named chain member brings every image after it
 unless `--no-downstream` is given.
@@ -104,6 +105,28 @@ A published image is verified by `docker pull mikaeluman/<image>:latest`, the sa
 `docker rmi`. An ad hoc probe of a built image is `docker run --rm mikaeluman/<image>:latest <cmd>`;
 `ldd`, `cargo tree` and `uv tree` run this way.
 
+## Start script
+
+Images are run through start scripts outside the repository (`~/run-science.sh` is one), and a
+rebuilt image can break their assumptions. `--start-script <path>` names one. Without it a
+standalone run asks once, header "Start script": "Is there a docker start script the rebuilt
+images should be checked against?", offering every `~/run-*.sh` found on the host, "None", or a
+path. The skill reads the script and checks it against every built image it can select:
+
+| Check | How | Finding when it fails |
+|---|---|---|
+| image reference | the `--image` default and every literal `mikaeluman/<img>:<tag>` name an image and tag the build produced | the script targets an image or tag that does not exist |
+| user | the `--user` uid:gid against `id ubuntu` inside the image | files created through mounts get another owner |
+| mount sources | every host path the script mounts exists; a default derived from `$PWD` is flagged | docker creates a missing source as a root-owned directory |
+| mount targets | `ls -A <target>` inside the image for every bind target; a non-empty target is shadowed by the mount, cache directories excepted | image-shipped config or tools vanish behind the mount |
+| runtime requirements | the flags the image's tools need, from `references/images.md`: `--shm-size` for headed Chrome, `--security-opt seccomp=unconfined` for bubblewrap, the perf mount with its capabilities, the WSLg env and sockets | a tool warns or fails at run time |
+| dry run | `script -qec "<script> -- --entrypoint /bin/true" /dev/null` (a pseudo-tty satisfies `-it`) | the script's own `docker run` fails before any command |
+
+Credential directories the script mounts (`.ssh`, `.aws`, `.kube`, `.gnupg`) are never named in
+a command the skill runs: the local secret-file guard blocks such commands, and no check needs
+their contents. Findings go in the report; the skill edits no script, and a mismatch that
+needs a script change is put to the user with the exact line.
+
 ## Diagnose
 
 A failed build or smoke run is classified from its log before anything is retried:
@@ -142,6 +165,10 @@ Where: local | github (<branch>, push=<true|false>) · Disk: <free before> -> <f
 
 ### Cleanup
 - removed <ids>; pulled and removed <images>; pruned <size>
+
+### Start script: <path | none>
+| check | result | evidence |
+|---|---|---|
 
 ### Ask the user
 ```

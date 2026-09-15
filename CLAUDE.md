@@ -109,5 +109,6 @@ that skill; the `lts-versions` skill gives it the candidate and the compatibilit
 Codex CLI sandboxes shell commands with bubblewrap and warns at startup when `bwrap` is missing
 or cannot create user namespaces. The base image ships `bubblewrap`; Docker's default seccomp
 profile still blocks unprivileged user namespaces, so a container that runs Codex needs
-`--security-opt seccomp=unconfined` (`~/run-science.sh` passes it). On the WSL host itself
+`--security-opt seccomp=unconfined`; a start script such as `~/run-science.sh` has to pass it,
+and the `image-builds` skill checks a start script for it. On the WSL host itself
 user namespaces work and `sudo apt install bubblewrap` is the whole fix.
