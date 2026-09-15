@@ -87,3 +87,17 @@ Hardware GL takes `--device /dev/dxg -v /usr/lib/wsl:/usr/lib/wsl
 -e LD_LIBRARY_PATH=/usr/lib/wsl/lib -e GALLIUM_DRIVER=d3d12`. `GALLIUM_DRIVER` is required:
 with no `/dev/dri` to enumerate, mesa settles on llvmpipe. Chrome needs
 `--use-gl=angle --use-angle=gl` on top, or ANGLE stays on bundled SwiftShader.
+
+## Smoke tests
+
+`tests/smoke/<image>.sh` checks an image's major additions from inside a built image and exits
+non-zero on a failed check or on `warning|error|fatal|panic|traceback|deprecated` in a check's
+output. `EXPECT_<TOOL>=<version>` turns a version check into an equality check; `SMOKE_SLOW=1`
+adds the `uv sync` and Python-cell renders.
+
+```bash
+docker run --rm -v "$PWD/tests:/tests:ro" -e EXPECT_DUCKDB=1.4.2 mikaeluman/datascience:latest bash /tests/smoke/datascience.sh
+```
+
+The `version-pinner` agent moves pins to the newest long-term-stable release, rebuilds and runs
+these scripts; the `lts-versions` skill gives it the candidate and the compatibility evidence.
