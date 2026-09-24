@@ -62,6 +62,7 @@ check 'bwrap --version' bwrap --version
 version_check claude_code claude --version
 check 'gh --version' gh --version
 check 'glow --version' glow --version
+check 'jq filters json' bash -c 'test "$(jq -r .a <<< "{\"a\":42}")" = 42'
 
 if [[ "${SMOKE_SLOW:-0}" == 1 ]]; then
   check 'uv sync and core imports' bash -c 'cd "$HOME/jupyter" && uv sync --quiet && uv run python -c "import pandas, polars, numpy, torch, duckdb, sklearn; print(torch.__version__)"'
