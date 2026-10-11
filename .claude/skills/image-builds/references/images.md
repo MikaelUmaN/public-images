@@ -17,7 +17,7 @@ The GPU variant (`--build-arg USE_TORCH_GPU=true` on datascience) is built only 
 
 Build states: *cached*, no instruction or parent changed, under a minute; *warm*, the layers
 after the first changed instruction rebuild while the BuildKit cache mounts on `/var/cache/apt`,
-`/var/lib/apt/lists` and `~/.cargo/{registry,git}` serve the downloads; *cold*, every layer
+`/var/lib/apt/lists` and `/opt/devtools/cargo/{registry,git}` serve the downloads; *cold*, every layer
 rebuilds. A base whose id changed makes every downstream image cold apart from the cache
 mounts: the chain after datascience costs 60–120 min locally and 55 min on GitHub.
 `docker build --no-cache` and an unfiltered `docker builder prune` destroy the cache mounts.
@@ -28,7 +28,7 @@ mounts: the chain after datascience costs 60–120 min locally and 55 min on Git
 |---|---|
 | Workflow | `.github/workflows/datascience.yml`, `workflow_dispatch` only; run name `<image> push=<bool>` |
 | Inputs | `image` (choice of the six), `push` (boolean, default `true`) |
-| Steps | checkout, Docker Hub login, `docker build`, smoke test of the built image, push when `push` is true |
+| Steps | checkout, Docker Hub login, `docker build`, smoke (including slow checks) and runtime-account tests, push when `push` is true |
 | Dispatch | `gh workflow run datascience.yml --ref <branch> -f image=<image> -f push=<true\|false>` |
 | Runner | `ubuntu-latest`, no cache between runs, every build cold; observed: datascience 4 min, pico 5 min, rust-datascience 44 min, net-datascience 5 min, quarto-datascience 6 min |
 | Chain on CI | serial: the base run must have pushed before the next link is dispatched |

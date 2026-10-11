@@ -1,7 +1,9 @@
 # AGENTS.md
 
 Six Docker images for analytical developer work, published as `mikaeluman/<image>:latest`,
-built from Ubuntu 24.04 for linux/amd64, running as user `ubuntu` (uid 1000, passwordless sudo).
+built from Ubuntu 24.04 for linux/amd64, defaulting to user `ubuntu` (uid 1000, passwordless sudo).
+All six accept optional runtime identity variables through the shared entrypoint; the contract
+and invocation are in README.md, Runtime account.
 This is the instruction file for coding agents; `CLAUDE.md` imports it and is never edited
 (`git config core.hooksPath .githooks` activates the hook that rejects such a commit).
 
@@ -59,20 +61,30 @@ and `pyproject.toml` dependencies (declared, never pinned).
 
 ## Installing
 
-Root installs apt packages and `/usr/local` binaries; after `USER $USER` toolchains install into
-the home directory: bun in `~/.bun` (`node` is a symlink to bun), uv tools, Claude Code and Codex in `~/.local`, rustup
-and cargo in `~/.rustup` and `~/.cargo`, dotnet tools in `~/.dotnet/tools`, each bin dir on `PATH`.
+These public images must behave as standard, normal Linux environments. Bundled tools must
+support ordinary installation, upgrades and vendor-supported self-updates inside a running
+container, using sudo where a system installation requires it. Build-time pins select the
+initial versions; they must not disable runtime updates. Installation paths and permissions
+must support both the default account and runtime-selected accounts. Keep every image generic:
+personal identities, host paths, configuration and launcher choices belong to the consumer.
+
+Root installs apt packages and `/usr/local` binaries. User-managed installations live under
+`/opt/devtools`: bun in `.bun` (`node` links to bun), uv environments in `uv`, Python in `python`,
+Claude versions in `claude`, Codex as a Bun global package, rustup in `rustup`, cargo in `cargo`,
+and .NET global tools in `dotnet`. Shared launchers live in `bin`; tool bin dirs are on `PATH`.
+The entrypoint seeds home configuration from `/etc/skel` and supplies native installation links.
+Runtime account setup changes ownership only on unmounted image files, then drops privileges.
 
 Release downloads are verified where the vendor publishes a signature or checksum: GPG for the
-AWS CLI (`awscliv2-public-key.asc`); SHA256 for kubectl, k9s, helm, Nushell, rustup and Quarto,
-and the Codex installer checks its package's SHA256 digest. The DuckDB CLI, libduckdb, the uv,
+AWS CLI (`awscliv2-public-key.asc`); SHA256 for kubectl, k9s, helm, Nushell, rustup and Quarto.
+Bun verifies registry package integrity for Codex. The DuckDB CLI, libduckdb, the uv,
 bun and Claude Code installers and the Pico SDK and picotool clones are fetched at a versioned
 URL or tag with a version assertion and no checksum.
 
 ## apt caching
 
 Every apt layer mounts BuildKit caches on `/var/cache/apt` and `/var/lib/apt/lists`;
-rust-datascience adds `~/.cargo/registry` and `~/.cargo/git`. Each standalone image deletes
+rust-datascience adds `/opt/devtools/cargo/registry` and `/opt/devtools/cargo/git`. Each standalone image deletes
 `/etc/apt/apt.conf.d/docker-clean` once so downloaded `.deb` files stay. `apt-get clean` and
 `rm -rf /var/lib/apt/lists/*` never return: those paths are mounts, and the cleanup only
 empties the cache. `docker build --no-cache` and an unfiltered `docker builder prune` destroy
@@ -87,7 +99,9 @@ the mounts.
 | Chrome, headed | `--shm-size=1g` and a display forwarded by the host | tabs crash on Docker's 64 MB `/dev/shm` |
 | Codex CLI | `--security-opt seccomp=unconfined` | its bubblewrap sandbox needs user namespaces, which the default profile blocks |
 | perf | the host binary mounted over `/usr/local/bin/perf` and `/usr/bin/perf`, plus `--cap-add PERFMON` or `SYS_PTRACE` (`SYS_ADMIN` for everything) | the image ships only the libraries perf links against |
-| Home mounts | caches and single config files beneath `~/.bun`, `~/.cargo`, `~/.dotnet`, `~/.jupyter`, `~/.config/nushell`, `~/.local/state/vim`, never the parent directory | the image owns binaries, tool installs, the Jupyter server config and the Nushell plugin registry there |
+| Home mounts | selected config directories and files; JupyterLab settings at `~/.jupyter/lab`, Nushell `config.nu` and `env.nu`, Vim state at `~/.local/state/vim` | home templates include the Jupyter server config and Nushell plugin registry; native installation links remain image-owned |
+| Tool caches | `/opt/devtools/cargo/registry`, `/opt/devtools/cargo/git`, `/opt/devtools/.bun/install/cache` | cache-only mounts preserve the installed toolchains |
+| Runtime account selection | `--user root` plus `CONTAINER_USER`, `CONTAINER_UID`, `CONTAINER_GID`, optionally `CONTAINER_HOME`; subsequent `docker exec` specifies `--user` | the entrypoint prepares the identity then drops privileges; Docker retains its configured exec user |
 
 The image-builds start-script check reads this table. Playwright (bun and Python) selects the
 system Chrome with `channel: 'chrome'`.
@@ -98,8 +112,8 @@ system Chrome with `channel: 'chrome'`.
 (`EXPECT_<TOOL>=<ver>` turns it into an equality check) and `allow` (with a reason), and fails a
 check on a non-zero exit or on `warning|warn|error|fatal|panic|traceback|deprecate(d)` in its
 output; `SMOKE_SLOW=1` adds the checks that need the project's `uv sync`. A major addition to an
-image gets a check in its script. CI runs the plain form before pushing:
+image gets a check in its script. CI includes the slow checks before pushing:
 
 ```bash
-docker run --rm -v "$PWD/tests:/tests:ro" mikaeluman/<image>:latest bash /tests/smoke/<image>.sh
+docker run --rm --env SMOKE_SLOW=1 -v "$PWD/tests:/tests:ro" mikaeluman/<image>:latest bash /tests/smoke/<image>.sh
 ```

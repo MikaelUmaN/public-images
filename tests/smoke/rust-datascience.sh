@@ -18,7 +18,12 @@ evcxr_evaluates() {
   grep -qx '2' <<<"$out"
 }
 check 'evcxr evaluates 1+1' evcxr_evaluates
-check 'evcxr kernel spec installed' cat /usr/local/share/jupyter/kernels/rust/kernel.json
+check 'evcxr kernel uses the installed executable' python3 -c '
+import json, os, shutil
+with open("/usr/local/share/jupyter/kernels/rust/kernel.json") as stream:
+    executable = json.load(stream)["argv"][0]
+assert os.path.samefile(executable, shutil.which("evcxr_jupyter")), executable
+print(executable)'
 
 for tool in nextest deny outdated watch deps llvm-cov sweep cache set-version bloat machete generate audit flamegraph; do
   check "cargo $tool --version" cargo "$tool" --version

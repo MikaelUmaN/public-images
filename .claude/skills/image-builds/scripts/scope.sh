@@ -30,7 +30,7 @@ base_of() { sed --quiet --regexp-extended 's#^FROM mikaeluman/([a-z-]+):.*#\1#p'
 
 inputs_of() {
   local img="$1"
-  printf '%s\n' "$img.docker" tests/smoke/lib.sh "tests/smoke/$img.sh"
+  printf '%s\n' "$img.docker" tests/smoke/lib.sh "tests/smoke/$img.sh" tests/test_runtime_user.py
   grep --extended-regexp '^COPY ' "$img.docker" | sed --regexp-extended 's/^COPY( --[a-z]+=[^ ]+)* //' | awk '{ NF--; print }' | tr ' ' '\n'
   grep --only-matching --extended-regexp 'tests/[A-Za-z0-9_./-]+' "tests/smoke/$img.sh" 2>/dev/null || true
 }
@@ -59,6 +59,7 @@ for img in "${all[@]}"; do
   for f in "${changed[@]}"; do
     case "$f" in
       tests/*) fk=tests ;;
+      entrypoint.sh) fk=runtime ;;
       pyproject.toml|pytorch*.toml) fk=python-deps ;;
       *.docker)
         fk=comment

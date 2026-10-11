@@ -38,7 +38,7 @@ check 'chrome headless screenshot' google-chrome-stable --headless=new --no-sand
 
 # Resolution of the global playwright package needs the global install directory as cwd.
 bun_playwright_drives_chrome() {
-  cd "$HOME/.bun/install/global" && bun -e '
+  cd "$BUN_INSTALL/install/global" && bun -e '
     import { chromium } from "playwright";
     const browser = await chromium.launch({ channel: "chrome", headless: true });
     const page = await browser.newPage();

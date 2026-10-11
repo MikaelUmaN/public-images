@@ -46,3 +46,4 @@ if (( sandbox )); then
 fi
 echo "+ docker run ${args[*]} $ref bash /tests/smoke/$image.sh"
 docker run "${args[@]}" "$ref" bash "/tests/smoke/$image.sh"
+RUNTIME_TEST_IMAGE="$ref" python3 -B "$repo/tests/test_runtime_user.py" -v

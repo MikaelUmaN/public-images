@@ -118,5 +118,6 @@ COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 USER $USER
 WORKDIR $HOME
 
+LABEL org.opencontainers.image.runtime-user.version="1"
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/bin/bash"]

@@ -164,8 +164,8 @@ RUN set -eux; \
     /usr/local/bin/nu --version | grep -F "${NUSHELL_VERSION}"; \
     rm -rf /tmp/nu-${NUSHELL_VERSION}-* /tmp/${NUSHELL_ASSET} /tmp/nu_SHA256SUMS
 
-RUN install -d -o $USER -g $USER $HOME/.config/nushell && \
-    touch $HOME/.config/nushell/config.nu $HOME/.config/nushell/env.nu
+RUN mkdir -p /etc/skel/.config/nushell && \
+    touch /etc/skel/.config/nushell/config.nu /etc/skel/.config/nushell/env.nu
 
 LABEL org.opencontainers.image.awscli.version=${AWS_CLI_VERSION} \
       org.opencontainers.image.kubectl.version=${KUBECTL_VERSION} \
@@ -182,15 +182,22 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 # Only use specific python installation, not the system python.
 ENV UV_PYTHON_PREFERENCE=only-managed
+ENV UV_PYTHON_INSTALL_DIR=/opt/devtools/python \
+    UV_TOOL_DIR=/opt/devtools/uv \
+    UV_TOOL_BIN_DIR=/opt/devtools/bin \
+    BUN_INSTALL=/opt/devtools/.bun
+ENV PATH="/opt/devtools/bin:/opt/devtools/.bun/bin:${PATH}"
 ARG UV_VERSION=0.12.13
 RUN curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | env UV_INSTALL_DIR="/usr/local/bin" sh && \
     uv --version | grep -F "${UV_VERSION}"
 
-RUN chown -R $USER:$USER $HOME
-
-# Entrypoint forwards container startup to the requested command. Installed while
-# still root so it lands in /usr/local/bin.
-COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN install -d -o $USER -g $USER /opt/devtools /opt/devtools/bin \
+      /opt/devtools/python /opt/devtools/uv /opt/devtools/.bun \
+      /opt/devtools/claude && \
+    mkdir -p $HOME/.local/share && \
+    ln -s /opt/devtools/bin $HOME/.local/bin && \
+    ln -s /opt/devtools/claude $HOME/.local/share/claude && \
+    chown -R $USER:$USER $HOME
 
 USER $USER
 
@@ -205,30 +212,22 @@ ARG BUN_VERSION=1.4.2
 ARG PLAYWRIGHT_VERSION=1.62.1
 ARG DOTENVX_VERSION=2.23.0
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" && \
-    ln -s $HOME/.bun/bin/bun $HOME/.bun/bin/node && \
-    $HOME/.bun/bin/bun --version | grep -Fx "${BUN_VERSION}" && \
-    $HOME/.bun/bin/bun install -g "playwright@${PLAYWRIGHT_VERSION}" "@dotenvx/dotenvx@${DOTENVX_VERSION}"
-ENV PATH="${HOME}/.bun/bin:${PATH}"
+    ln -s "$BUN_INSTALL/bin/bun" "$BUN_INSTALL/bin/node" && \
+    bun --version | grep -Fx "${BUN_VERSION}" && \
+    bun install -g "playwright@${PLAYWRIGHT_VERSION}" "@dotenvx/dotenvx@${DOTENVX_VERSION}"
 
 RUN uv python install 3.13
 WORKDIR $HOME/jupyter
 
-# uv tools and the Claude Code native installer link their executables into ~/.local/bin.
-ENV PATH="${HOME}/.local/bin:${PATH}"
-
-# Claude Code from Anthropic's native installer: a versioned binary under ~/.local/share/claude
-# with a launcher at ~/.local/bin/claude, so `claude update` replaces it in place. Runs as $USER
-# so the installation lives in that user's home.
+# Native launcher paths link to writable installations under /opt/devtools.
 ARG CLAUDE_CODE_VERSION=2.1.259
 RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_CODE_VERSION}" && \
+    ln -sfn "$(readlink -f /opt/devtools/bin/claude)" /opt/devtools/bin/claude && \
     claude --version | grep -F "${CLAUDE_CODE_VERSION}"
 
-# Codex CLI from OpenAI's standalone installer, which verifies the package's SHA256 digest.
-# CODEX_HOME applies to this step only: the package lands in ~/.local/share/codex, outside the
-# ~/.codex that start scripts mount, with the launcher at ~/.local/bin/codex.
+# Bun manages Codex independently of the runtime configuration directory.
 ARG CODEX_VERSION=0.162.1
-RUN curl -fsSL https://chatgpt.com/codex/install.sh | \
-      CODEX_HOME="$HOME/.local/share/codex" CODEX_NON_INTERACTIVE=1 sh -s -- --release "${CODEX_VERSION}" && \
+RUN bun install --global "@openai/codex@${CODEX_VERSION}" && \
     codex --version | grep -F "${CODEX_VERSION}"
 
 ARG RUFF_VERSION=0.16.7
@@ -261,13 +260,20 @@ RUN if [ "$USE_TORCH_GPU" = "false" ]; then \
     fi && \
     rm pytorch-cpu.toml pytorch-gpu.toml
 
-# Jupyter server configuration.
-RUN mkdir -p $HOME/.jupyter
-COPY jupyter_server_config.py $HOME/.jupyter/
-
 # Copy Jupyter startup script.
 COPY --chown=$USER:$USER start-jupyter.sh $HOME/jupyter/
 RUN chmod +x $HOME/jupyter/start-jupyter.sh
 
+USER root
+COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY jupyter_server_config.py /etc/skel/.jupyter/
+RUN cp -a $HOME/jupyter /etc/skel/ && \
+    cp $HOME/.vimrc /etc/skel/.vimrc && \
+    mkdir -p /etc/skel/.local/state/vim && \
+    cp -a /etc/skel/.jupyter $HOME/ && \
+    chown -R $USER:$USER $HOME/.jupyter
+USER $USER
+
+LABEL org.opencontainers.image.runtime-user.version="1"
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/bin/bash"]
