@@ -196,6 +196,7 @@ RUN install -d -o $USER -g $USER /opt/devtools /opt/devtools/bin \
       /opt/devtools/claude && \
     mkdir -p $HOME/.local/share && \
     ln -s /opt/devtools/bin $HOME/.local/bin && \
+    ln -s /opt/devtools/.bun $HOME/.bun && \
     ln -s /opt/devtools/claude $HOME/.local/share/claude && \
     chown -R $USER:$USER $HOME
 
