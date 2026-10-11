@@ -199,16 +199,15 @@ USER $USER
 RUN mkdir -p $HOME/.local/state/vim && \
     printf 'set viminfofile=$HOME/.local/state/vim/viminfo\n' > $HOME/.vimrc
 
-# Bun (JS runtime), Playwright, and OpenAI Codex CLI
+# Bun (JS runtime), Playwright and dotenvx
 # Symlink node->bun so Node.js shebangs work (bun is Node-compatible)
 ARG BUN_VERSION=1.4.2
 ARG PLAYWRIGHT_VERSION=1.62.1
-ARG CODEX_VERSION=0.153.4
 ARG DOTENVX_VERSION=2.23.0
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" && \
     ln -s $HOME/.bun/bin/bun $HOME/.bun/bin/node && \
     $HOME/.bun/bin/bun --version | grep -Fx "${BUN_VERSION}" && \
-    $HOME/.bun/bin/bun install -g "playwright@${PLAYWRIGHT_VERSION}" "@openai/codex@${CODEX_VERSION}" "@dotenvx/dotenvx@${DOTENVX_VERSION}"
+    $HOME/.bun/bin/bun install -g "playwright@${PLAYWRIGHT_VERSION}" "@dotenvx/dotenvx@${DOTENVX_VERSION}"
 ENV PATH="${HOME}/.bun/bin:${PATH}"
 
 RUN uv python install 3.13
@@ -224,6 +223,14 @@ ARG CLAUDE_CODE_VERSION=2.1.259
 RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_CODE_VERSION}" && \
     claude --version | grep -F "${CLAUDE_CODE_VERSION}"
 
+# Codex CLI from OpenAI's standalone installer, which verifies the package's SHA256 digest.
+# CODEX_HOME applies to this step only: the package lands in ~/.local/share/codex, outside the
+# ~/.codex that start scripts mount, with the launcher at ~/.local/bin/codex.
+ARG CODEX_VERSION=0.162.1
+RUN curl -fsSL https://chatgpt.com/codex/install.sh | \
+      CODEX_HOME="$HOME/.local/share/codex" CODEX_NON_INTERACTIVE=1 sh -s -- --release "${CODEX_VERSION}" && \
+    codex --version | grep -F "${CODEX_VERSION}"
+
 ARG RUFF_VERSION=0.16.7
 ARG MYPY_VERSION=2.3.1
 ARG JUPYTERLAB_VERSION=4.6.3
@@ -238,7 +245,8 @@ RUN uv tool install "ruff==${RUFF_VERSION}" && \
 LABEL org.opencontainers.image.uv.version=${UV_VERSION} \
       org.opencontainers.image.bun.version=${BUN_VERSION} \
       org.opencontainers.image.playwright.version=${PLAYWRIGHT_VERSION} \
-      org.opencontainers.image.claude-code.version=${CLAUDE_CODE_VERSION}
+      org.opencontainers.image.claude-code.version=${CLAUDE_CODE_VERSION} \
+      org.opencontainers.image.codex.version=${CODEX_VERSION}
 
 # Copy pyproject.toml with all dependencies declared.
 # CUDA libraries are significantly more disk intensive than the CPU-only version.

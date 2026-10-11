@@ -72,7 +72,7 @@ rule is the Coupling column of its `references/ecosystems.md`. A partial move is
 | G6 Python | `uv python install 3.13`, the uv tool ARGs, `pyproject.toml` | a Python minor move asks the user |
 | G7 Quarto | `QUARTO_VERSION`, jupyter-cache, TeX Live from apt | — |
 | G8 .NET | apt SDK majors, the dotnet tool ARGs | tools follow the installed SDKs |
-| G9 Bun/npm | `BUN_VERSION`, `PLAYWRIGHT_VERSION`, `CODEX_VERSION`, `DOTENVX_VERSION`, PyPI playwright | npm playwright stays on the PyPI playwright minor |
+| G9 Bun/npm | `BUN_VERSION`, `PLAYWRIGHT_VERSION`, `DOTENVX_VERSION`, PyPI playwright | npm playwright stays on the PyPI playwright minor |
 
 ## Resolve
 

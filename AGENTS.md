@@ -12,7 +12,7 @@ link pulling `mikaeluman/<base>:latest`. `latex` and `pico` build from `ubuntu:2
 
 | Image | Adds |
 |---|---|
-| datascience | uv-managed Python 3.13 with JupyterLab and the `pyproject.toml` stack (synced at first use), DuckDB, Nushell, AWS CLI, kubectl, k9s, helm, bun with Playwright, Codex and dotenvx, Chrome, Claude Code, gh, glow, bubblewrap |
+| datascience | uv-managed Python 3.13 with JupyterLab and the `pyproject.toml` stack (synced at first use), DuckDB, Nushell, AWS CLI, kubectl, k9s, helm, bun with Playwright and dotenvx, Chrome, Claude Code, Codex, gh, glow, bubblewrap |
 | rust-datascience | rustup toolchain, cargo tools, evcxr REPL and Jupyter kernel, libduckdb, `nu_plugin_polars` |
 | net-datascience | .NET 8 and 10 SDKs from apt; fantomas, fsautocomplete, fsdocs, fsharplint |
 | quarto-datascience | Quarto CLI, extended TeX Live, Quarto helper packages appended to `pyproject.toml` |
@@ -60,13 +60,14 @@ and `pyproject.toml` dependencies (declared, never pinned).
 ## Installing
 
 Root installs apt packages and `/usr/local` binaries; after `USER $USER` toolchains install into
-the home directory: bun in `~/.bun` (`node` is a symlink to bun), uv tools and Claude Code in `~/.local`, rustup
+the home directory: bun in `~/.bun` (`node` is a symlink to bun), uv tools, Claude Code and Codex in `~/.local`, rustup
 and cargo in `~/.rustup` and `~/.cargo`, dotnet tools in `~/.dotnet/tools`, each bin dir on `PATH`.
 
 Release downloads are verified where the vendor publishes a signature or checksum: GPG for the
-AWS CLI (`awscliv2-public-key.asc`); SHA256 for kubectl, k9s, helm, Nushell, rustup and Quarto.
-The DuckDB CLI, libduckdb, the uv, bun and Claude Code installers and the Pico SDK and picotool
-clones are fetched at a versioned URL or tag with a version assertion and no checksum.
+AWS CLI (`awscliv2-public-key.asc`); SHA256 for kubectl, k9s, helm, Nushell, rustup and Quarto,
+and the Codex installer checks its package's SHA256 digest. The DuckDB CLI, libduckdb, the uv,
+bun and Claude Code installers and the Pico SDK and picotool clones are fetched at a versioned
+URL or tag with a version assertion and no checksum.
 
 ## apt caching
 

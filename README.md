@@ -4,7 +4,7 @@ Docker images for analytical developer work, published as `mikaeluman/<image>:la
 
 | Image | Builds on | Adds |
 |---|---|---|
-| `datascience` | `ubuntu:24.04` | uv-managed Python 3.13 and JupyterLab, DuckDB, Nushell, AWS and Kubernetes CLIs, bun with Playwright and Codex, Chrome, Claude Code |
+| `datascience` | `ubuntu:24.04` | uv-managed Python 3.13 and JupyterLab, DuckDB, Nushell, AWS and Kubernetes CLIs, bun with Playwright, Chrome, Claude Code, Codex |
 | `rust-datascience` | `datascience` | Rust toolchain, cargo tools, evcxr REPL and Jupyter kernel, libduckdb, Nushell polars plugin |
 | `net-datascience` | `rust-datascience` | .NET 8 and 10 SDKs, F# tools |
 | `quarto-datascience` | `net-datascience` | Quarto CLI, extended TeX Live |
