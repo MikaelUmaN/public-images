@@ -18,7 +18,7 @@ evcxr_evaluates() {
   grep -qx '2' <<<"$out"
 }
 check 'evcxr evaluates 1+1' evcxr_evaluates
-check 'evcxr kernel uses the installed executable' python3 -c '
+check 'evcxr kernel uses the installed executable' uv run --offline --no-project --python 3.13 python -c '
 import json, os, shutil
 with open("/usr/local/share/jupyter/kernels/rust/kernel.json") as stream:
     executable = json.load(stream)["argv"][0]
