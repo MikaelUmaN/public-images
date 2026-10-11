@@ -188,7 +188,7 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/devtools/python \
     BUN_INSTALL=/opt/devtools/.bun
 ENV PATH="/opt/devtools/bin:/opt/devtools/.bun/bin:${PATH}"
 ARG UV_VERSION=0.12.13
-RUN curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | env UV_INSTALL_DIR="/usr/local/bin" sh && \
+RUN curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | env HOME=/root UV_NO_MODIFY_PATH=1 UV_INSTALL_DIR="/usr/local/bin" sh && \
     uv --version | grep -F "${UV_VERSION}"
 
 RUN install -d -o $USER -g $USER /opt/devtools /opt/devtools/bin \
