@@ -14,7 +14,22 @@ printf -- '---\ntitle: Smoke\n---\n\nA paragraph with $e^{i\\pi} = -1$.\n' > "$W
 check 'render qmd to html' bash -c 'cd "$1" && quarto render doc.qmd --to html && test -f doc.html' _ "$WORK"
 
 if [[ "${SMOKE_SLOW:-0}" == 1 ]]; then
-  printf -- '---\ntitle: Smoke\n---\n\n```{python}\nprint(1 + 1)\n```\n' > "$WORK/cell.qmd"
+  cat > "$WORK/cell.qmd" <<'EOF'
+---
+title: Smoke
+---
+
+```{python}
+from ipaddress import ip_address
+from ipykernel.connect import get_connection_info
+
+connection = get_connection_info(unpack=True)
+assert connection["transport"] == "ipc" or ip_address(connection["ip"]).is_loopback
+print(1 + 1)
+```
+EOF
+  allow '^Starting python3 kernel\.\.\.\[IPKernelApp\] WARNING \| Kernel is running over TCP without encryption\. All communication \(including code and outputs\) is sent in plain text and is susceptible to eavesdropping\. Use IPC transport or launch with kernel manager-provisioned CurveZMQ keys to enable transport encryption\.$' \
+    'The executed cell verifies a local kernel; this isolated smoke container uses Quarto defaults.'
   check 'uv sync' bash -c 'cd "$HOME/jupyter" && uv sync --quiet'
   check 'render qmd with python cell' bash -c 'cd "$1" && uv run --directory "$HOME/jupyter" quarto render "$1/cell.qmd" --to html && grep -q ">2<" cell.html' _ "$WORK"
   check 'render qmd to pdf' bash -c 'cd "$1" && quarto render doc.qmd --to pdf && test -f doc.pdf' _ "$WORK"
