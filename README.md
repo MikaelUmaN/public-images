@@ -65,8 +65,8 @@ For a uv tool, `uv tool install TOOL@latest` replaces the image's exact version 
 subsequent updates use `uv tool upgrade TOOL`.
 
 Bind mounts select configuration directories, projects and caches individually. Mounting an
-entire runtime home is rejected during account setup. Existing paths that shadow the native
-installation links are rejected rather than overwritten. Rust cache mounts target
+entire runtime home or one of its parents is rejected during account setup. Existing paths
+that shadow the native installation links are rejected rather than overwritten. Rust cache mounts target
 `/opt/devtools/cargo/registry` and `/opt/devtools/cargo/git`; Bun's cache mount targets
 `/opt/devtools/.bun/install/cache`.
 

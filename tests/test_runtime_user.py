@@ -139,6 +139,40 @@ sudo -E /usr/local/bin/entrypoint.sh bash -ec '
             self.assertEqual((path.stat().st_uid, path.stat().st_gid), original)
             self.assertEqual(list(path.iterdir()), [])
 
+    def test_home_parent_mount_is_rejected_without_changing_the_host(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            original = (path.stat().st_uid, path.stat().st_gid)
+
+            result = run_container(
+                'echo command-ran', *account_options(),
+                "--mount", f"type=bind,source={path},target=/home",
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("mount individual home subdirectories", result.stderr)
+            self.assertEqual((path.stat().st_uid, path.stat().st_gid), original)
+            self.assertEqual(list(path.iterdir()), [])
+
+    def test_tool_parent_mount_keeps_host_file_ownership(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            path.chmod(0o755)
+            tools = path / "devtools" / "bin"
+            tools.mkdir(parents=True)
+            marker = tools / "marker"
+            marker.write_text("host tool")
+            original = (marker.stat().st_uid, marker.stat().st_gid, marker.stat().st_mode)
+
+            result = run_container(
+                'cat "$HOME/.local/bin/marker"', *account_options(),
+                "--mount", f"type=bind,source={path},target=/opt,readonly",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "host tool")
+            self.assertEqual((marker.stat().st_uid, marker.stat().st_gid, marker.stat().st_mode), original)
+
     def test_exit_status_is_preserved(self):
         result = run_container('exit 37', *account_options())
 

@@ -9,6 +9,7 @@ own_image_files() {
   local -a prune=()
   while read -r _ _ _ _ target options; do
     printf -v target '%b' "$target"
+    [[ "$root" != "$target/"* ]] || return 0
     if [[ "$target" == "$root" || "$target" == "$root/"* ]]; then
       target="${target//\\/\\\\}"
       target="${target//\*/\\*}"
@@ -79,7 +80,11 @@ if [[ -n "$requested" ]]; then
       [[ -z "$record" || "${record%%:*}" == "$previous_group" ]] || fail "group conflict: $group"
     done
     [[ ! -L "$runtime_home" ]] || fail 'the runtime home must be a real directory'
-    mountpoint --quiet "$runtime_home" && fail 'mount individual home subdirectories instead of the entire home'
+    parent="$runtime_home"
+    while [[ -n "$parent" ]]; do
+      mountpoint --quiet "$parent" && fail 'mount individual home subdirectories instead of the entire home or its parents'
+      parent="${parent%/*}"
+    done
 
     # An empty temporary home prevents usermod from recursively changing mounted files.
     temporary_home="$(mktemp --directory /run/container-user.XXXXXX)"
