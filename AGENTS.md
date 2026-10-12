@@ -90,6 +90,14 @@ rust-datascience adds `/opt/devtools/cargo/registry` and `/opt/devtools/cargo/gi
 empties the cache. `docker build --no-cache` and an unfiltered `docker builder prune` destroy
 the mounts.
 
+## Launcher ownership
+
+`scripts/run-science.sh` is the public host launcher. Its defaults, presets and sharing groups
+are generic and documented in README.md. Host identities and paths are derived at runtime;
+personal repository names, mount aliases and setup scripts stay outside this repository.
+Launcher changes include `python3 -B tests/test_launcher.py -v` and focused verification against
+an existing image. The launcher remains outside the image filesystem.
+
 ## Runtime requirements
 
 | Tool | `docker run` needs | Reason |
