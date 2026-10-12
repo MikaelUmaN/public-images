@@ -77,6 +77,10 @@ USER $USER
 RUN cd "$HOME/jupyter" && \
     sed -i '/^dependencies = \[/a\    "jupyter-cache",\n    "itables",\n    "tabulate",\n    "great-tables",' pyproject.toml
 
+USER root
+RUN cp "$HOME/jupyter/pyproject.toml" /etc/skel/jupyter/pyproject.toml
+USER $USER
+
 # Build-time check: Quarto finds pandoc, LaTeX, Python and Jupyter, or the build fails.
 RUN quarto check
 

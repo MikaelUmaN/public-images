@@ -17,21 +17,22 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       dotnet-sdk-10.0; \
     dotnet --list-sdks
 
-# dotnet global tools install to ~/.dotnet/tools; add to PATH (mirrors ~/.cargo/bin pattern)
-ENV PATH=$HOME/.dotnet/tools:$PATH
+ENV PATH=/opt/devtools/dotnet:$PATH
+RUN install -d -o $USER -g $USER /opt/devtools/dotnet "$HOME/.dotnet" && \
+    ln -s /opt/devtools/dotnet "$HOME/.dotnet/tools"
 
 USER $USER
 
-# Install F# tooling as user-level global tools
+# F# tools use a writable, account-independent tool directory.
 ARG FANTOMAS_VERSION=7.0.6
 ARG FSAUTOCOMPLETE_VERSION=0.84.0
 ARG FSDOCS_VERSION=22.2.0
 ARG FSHARPLINT_VERSION=0.27.0
 RUN set -eux; \
-    dotnet tool install -g fantomas --version "${FANTOMAS_VERSION}"; \
-    dotnet tool install -g fsautocomplete --version "${FSAUTOCOMPLETE_VERSION}"; \
-    dotnet tool install -g fsdocs-tool --version "${FSDOCS_VERSION}"; \
-    dotnet tool install -g dotnet-fsharplint --version "${FSHARPLINT_VERSION}"; \
+    dotnet tool install --global fantomas --version "${FANTOMAS_VERSION}"; \
+    dotnet tool install --global fsautocomplete --version "${FSAUTOCOMPLETE_VERSION}"; \
+    dotnet tool install --global fsdocs-tool --version "${FSDOCS_VERSION}"; \
+    dotnet tool install --global dotnet-fsharplint --version "${FSHARPLINT_VERSION}"; \
     fantomas --version; \
     fsautocomplete --version
 

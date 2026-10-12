@@ -17,6 +17,7 @@ check 'duckdb select 42' duckdb -c 'select 42'
 
 check 'user bin dir on PATH' bash -c 'case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) echo "PATH lacks $HOME/.local/bin: $PATH"; exit 1 ;; esac'
 version_check uv uv --version
+check 'root-installed uv supports self-update' bash -c 'sudo -n uv self update "$(uv --version | cut -d " " -f 2)"'
 check 'uv python 3.13 installed' bash -c 'uv python list --only-installed | grep -F cpython-3.13'
 version_check bun bun --version
 check 'node resolves to bun' node -e 'console.log(process.version, process.versions.bun)'
@@ -38,7 +39,7 @@ check 'chrome headless screenshot' google-chrome-stable --headless=new --no-sand
 
 # Resolution of the global playwright package needs the global install directory as cwd.
 bun_playwright_drives_chrome() {
-  cd "$HOME/.bun/install/global" && bun -e '
+  cd "$BUN_INSTALL/install/global" && bun -e '
     import { chromium } from "playwright";
     const browser = await chromium.launch({ channel: "chrome", headless: true });
     const page = await browser.newPage();

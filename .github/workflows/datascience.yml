@@ -48,7 +48,12 @@ jobs:
       run: docker build . --file ${{ github.event.inputs.image }}.docker --tag ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image }}:${{ env.TAG }}
 
     - name: Smoke test
-      run: docker run --rm -v "$PWD/tests:/tests:ro" ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image }}:${{ env.TAG }} bash /tests/smoke/${{ github.event.inputs.image }}.sh
+      run: docker run --rm --env SMOKE_SLOW=1 -v "$PWD/tests:/tests:ro" ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image }}:${{ env.TAG }} bash /tests/smoke/${{ github.event.inputs.image }}.sh
+
+    - name: Runtime account tests
+      env:
+        RUNTIME_TEST_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image }}:${{ env.TAG }}
+      run: python3 -B tests/test_runtime_user.py -v
 
     - name: Push Docker Image
       if: ${{ inputs.push }}

@@ -128,6 +128,7 @@ the next is dispatched, and a run whose base is about to be rebuilt is cancelled
 scripts/smoke.sh <image> [--tag build-<n>] [--expect TOOL=ver]... [--slow] [--perf] [--sandbox]
 ```
 
+The script runs image smoke checks and the runtime-account integration tests.
 `smoke` is the plain form plus `--expect`; `full` adds the image's flags from
 `references/images.md`. An ad hoc probe of a built image is
 `docker run --rm mikaeluman/<image>:<tag> <cmd>` (`ldd`, `cargo tree`, `uv tree`).
@@ -141,7 +142,7 @@ it a standalone run asks once, header "Start script", offering every `~/run-*.sh
 | Check | How | Finding |
 |---|---|---|
 | image reference | the `--image` default and every literal `mikaeluman/<img>:<tag>` name an existing image and tag | the script targets an image or tag the build did not produce |
-| user | the `--user` uid:gid against `id ubuntu` in the image | files created through mounts get another owner |
+| user | the requested `CONTAINER_USER`/`CONTAINER_UID`/`CONTAINER_GID` and home against the initialized account; otherwise the image's default account | files created through mounts get another owner or tools resolve a different home |
 | mounts and dry run | `scripts/dry-run.sh <script>`: every bind source with existence and owner, the real run only when all exist, owners and containers re-checked after | a missing source (docker would create it root-owned) or the script's own `docker run` failing |
 | mount targets | `ls -A <target>` in the image for every bind target; a non-empty target is shadowed, cache directories excepted | image-shipped config or tools vanish behind the mount |
 | runtime requirements | the Runtime requirements table in `AGENTS.md` against the script's flags | a tool warns or fails at run time |

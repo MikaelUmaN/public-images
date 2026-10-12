@@ -44,12 +44,12 @@ RUN set -eux; \
 ENV DUCKDB_LIB_DIR=/usr/local/lib \
     DUCKDB_INCLUDE_DIR=/usr/local/include
 
-ENV CARGO_HOME=/home/$USER/.cargo \
-    RUSTUP_HOME=/home/$USER/.rustup \
-    PATH=/home/$USER/.cargo/bin:$PATH
+ENV CARGO_HOME=/opt/devtools/cargo \
+    RUSTUP_HOME=/opt/devtools/rustup \
+    PATH=/opt/devtools/cargo/bin:$PATH
 
-RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
-    --mount=type=cache,target=/home/$USER/.cargo/git \
+RUN --mount=type=cache,target=/opt/devtools/cargo/registry \
+    --mount=type=cache,target=/opt/devtools/cargo/git \
     set -eux; \
     mkdir -p "$CARGO_HOME" "$RUSTUP_HOME"; \
     chown -R $USER:$USER "$CARGO_HOME" "$RUSTUP_HOME"; \
@@ -59,27 +59,22 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
     echo "$(cut -d' ' -f1 /tmp/rustup-init.sha256)  /tmp/rustup-init" | sha256sum -c -; \
     chmod 0755 /tmp/rustup-init; \
     # run rustup-init as the ubuntu user so files are created with correct uid/gid
-    su $USER -s /bin/sh -c "/tmp/rustup-init -y --profile minimal --default-toolchain ${RUST_VERSION}"; \
+    su $USER -s /bin/sh -c "/tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain ${RUST_VERSION}"; \
     rm -f /tmp/rustup-init /tmp/rustup-init.sha256
 
-# Add config file with default crates and settings for evcxr.
-RUN set -eux; \
-    mkdir -p /home/${USER}/.config/evcxr; \
-    chown -R $USER:$USER /home/$USER/.config
-
-COPY --chown=$USER:$USER init.evcxr /home/${USER}/.config/evcxr/
+COPY init.evcxr /etc/skel/.config/evcxr/
 
 USER $USER
 
 # Install evcxr_jupyter for the user
 ARG EVCXR_VERSION=0.22.0
-RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
-    --mount=type=cache,target=/home/$USER/.cargo/git \
+RUN --mount=type=cache,target=/opt/devtools/cargo/registry \
+    --mount=type=cache,target=/opt/devtools/cargo/git \
     set -eux; \
     CARGO_TARGET_DIR=/tmp/cargo-install-target \
       cargo install --locked "evcxr_jupyter@${EVCXR_VERSION}" "evcxr_repl@${EVCXR_VERSION}" && \
     rm -rf /tmp/cargo-install-target && \
-    JUPYTER_PATH=/home/$USER/.local/share/jupyter evcxr_jupyter --install
+    XDG_DATA_HOME=/opt/devtools evcxr_jupyter --install
 
 # Rust toolchain components and cargo tools.
 RUN set -eux; \
@@ -98,8 +93,8 @@ ARG CARGO_MACHETE_VERSION=0.9.2
 ARG CARGO_GENERATE_VERSION=0.24.0
 ARG FLAMEGRAPH_VERSION=0.6.14
 ARG CARGO_AUDIT_VERSION=0.22.2
-RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
-    --mount=type=cache,target=/home/$USER/.cargo/git \
+RUN --mount=type=cache,target=/opt/devtools/cargo/registry \
+    --mount=type=cache,target=/opt/devtools/cargo/git \
     set -eux; \
     CARGO_TARGET_DIR=/tmp/cargo-install-target \
       cargo install --locked \
@@ -122,15 +117,15 @@ RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
 
 # Nushell polars plugin, pinned to the exact nushell version installed in the base image.
 # polars covers parquet read/write natively, so we no longer ship nu_plugin_parquet.
-RUN --mount=type=cache,target=/home/$USER/.cargo/registry \
-    --mount=type=cache,target=/home/$USER/.cargo/git \
+RUN --mount=type=cache,target=/opt/devtools/cargo/registry \
+    --mount=type=cache,target=/opt/devtools/cargo/git \
     set -eux; \
     NUSHELL_VERSION="$(nu --version)"; \
     CARGO_TARGET_DIR=/tmp/cargo-install-target \
       cargo install --locked nu_plugin_polars --version ${NUSHELL_VERSION} && \
     rm -rf /tmp/cargo-install-target
 RUN set -eux; \
-    nu -c 'plugin add ~/.cargo/bin/nu_plugin_polars' && \
+    nu -c 'plugin add /opt/devtools/cargo/bin/nu_plugin_polars' && \
     nu -c 'plugin use polars' && \
     nu -c 'plugin list | where name == polars | length | if $in == 0 { error make {msg: "polars plugin not registered"} }' && \
     nu -c '[1 2 3] | polars into-df | polars into-nu | length | if $in != 3 { error make {msg: "polars roundtrip failed"} }'
@@ -139,6 +134,7 @@ RUN set -eux; \
 USER root
 RUN set -eux; \
     mkdir -p /usr/local/share/jupyter/kernels && \
-    cp -r /home/$USER/.local/share/jupyter/kernels/* /usr/local/share/jupyter/kernels/
+    cp -r /opt/devtools/jupyter/kernels/* /usr/local/share/jupyter/kernels/ && \
+    cp -a $HOME/.config/nushell/. /etc/skel/.config/nushell/
 
 USER $USER
