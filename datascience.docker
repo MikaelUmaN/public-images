@@ -232,9 +232,12 @@ RUN bun install --global "@openai/codex@${CODEX_VERSION}" && \
     codex --version | grep -F "${CODEX_VERSION}"
 
 # Bun manages Copilot CLI; its loader starts the native binary from the glibc platform package.
+# Its first run unpacks about 240 MB into the cache; each runtime home unpacks its own copy.
 ARG COPILOT_VERSION=1.0.103
-RUN bun install --global "@github/copilot@${COPILOT_VERSION}" && \
-    copilot --version | grep -F "${COPILOT_VERSION}"
+RUN copilot_cache="$(mktemp -d)" && \
+    bun install --global "@github/copilot@${COPILOT_VERSION}" && \
+    COPILOT_CACHE_HOME="$copilot_cache" copilot --version | grep -F "${COPILOT_VERSION}" && \
+    rm -rf "$copilot_cache"
 
 ARG RUFF_VERSION=0.16.7
 ARG MYPY_VERSION=2.3.1
