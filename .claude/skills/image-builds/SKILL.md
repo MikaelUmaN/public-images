@@ -116,7 +116,10 @@ gh run list --workflow datascience.yml --branch <branch> --limit 1 --json databa
 scripts/gh-poll.sh <run-id>
 ```
 
-The run name is `<image> push=<bool>`. `gh-poll.sh` waits for completion and prints the
+The run name is `<image> push=<bool>`. A push from `main` publishes `:latest`; a push from any
+other branch publishes `:<branch>` (characters outside `A-Za-z0-9_.-` become `-`), which leaves
+`:latest` untouched and is inspected remotely with `docker buildx imagetools inspect`.
+`gh-poll.sh` waits for completion and prints the
 conclusion; a failed run is read with `gh run view <run-id> --log-failed`. Each chain link pulls
 its base `:latest` from Docker Hub, so a CI chain is serial: the base run must have pushed before
 the next is dispatched, and a run whose base is about to be rebuilt is cancelled

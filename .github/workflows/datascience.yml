@@ -32,14 +32,22 @@ jobs:
     - name: Launcher tests
       run: python3 -B tests/test_launcher.py -v
 
+    # Only the default branch publishes latest; any other branch publishes a tag named after it.
     - name: Set Docker Tag
       id: docker-tag
+      env:
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       run: |
         if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-          echo "TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          tag="${GITHUB_REF_NAME}"
+        elif [[ "${GITHUB_REF_NAME}" == "${DEFAULT_BRANCH}" ]]; then
+          tag=latest
         else
-          echo "TAG=latest" >> $GITHUB_ENV
+          tag="$(printf '%s' "${GITHUB_REF_NAME}" | tr -c 'A-Za-z0-9_.-' '-' | cut -c1-128)"
+          tag="${tag#[.-]}"
+          [[ -n "$tag" && "$tag" != latest ]] || { echo "Branch ${GITHUB_REF_NAME} has no safe image tag" >&2; exit 1; }
         fi
+        echo "TAG=${tag}" >> "$GITHUB_ENV"
 
     - name: Log in to DockerHub
       uses: docker/login-action@v4

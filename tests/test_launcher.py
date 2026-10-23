@@ -37,7 +37,7 @@ class LauncherTests(unittest.TestCase):
         )
         docker.chmod(0o755)
         self.env = {key: value for key, value in os.environ.items()
-                    if key not in {'CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'DISPLAY', 'WAYLAND_DISPLAY'}}
+                    if key not in {'CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'COPILOT_HOME', 'DISPLAY', 'WAYLAND_DISPLAY'}}
         self.env.update(HOME=str(self.home), PATH=f'{self.bin}:{os.environ["PATH"]}',
                         DOCKER_CALLS=str(self.calls))
 
@@ -69,7 +69,7 @@ class LauncherTests(unittest.TestCase):
         self.assertFalse(self.calls.exists())
 
     def test_preset_shares_available_resources_and_isolates_ai_state(self):
-        for directory in ['dev', 'data', '.codex', '.claude', '.config/git', '.config/uv',
+        for directory in ['dev', 'data', '.codex', '.claude', '.copilot', '.config/git', '.config/uv',
                           '.cargo/registry', '.cargo/git', '.bun/install/cache', '.nuget/packages']:
             (self.home / directory).mkdir(parents=True)
 
@@ -81,8 +81,10 @@ class LauncherTests(unittest.TestCase):
         self.assertIn(f'type=bind,source={self.home}/data,target={self.home}/data', mounts)
         self.assertIn(f'type=bind,source={self.home}/.config/git,target={self.home}/.config/git', mounts)
         self.assertIn(f'type=bind,source={self.home}/.cargo/registry,target=/opt/devtools/cargo/registry', mounts)
-        self.assertEqual(len(values(command, '--tmpfs')), 10)
+        self.assertEqual(len(values(command, '--tmpfs')), 11)
+        self.assertIn(f'type=bind,source={self.home}/.copilot,target={self.home}/.copilot', mounts)
         self.assertFalse((self.home / '.codex/packages').exists())
+        self.assertFalse((self.home / '.copilot/ide').exists())
         self.assertFalse(self.calls.exists())
 
     def test_explicit_options_override_preset_in_either_order(self):
@@ -172,15 +174,20 @@ class LauncherTests(unittest.TestCase):
     def test_custom_ai_directories_keep_host_paths(self):
         claude = self.home / 'claude config'
         codex = self.home / 'codex config'
-        claude.mkdir()
-        codex.mkdir()
+        copilot = self.home / 'copilot config'
+        for directory in [claude, codex, copilot]:
+            directory.mkdir()
 
-        command = self.command('--share', 'ai', env={'CLAUDE_CONFIG_DIR': str(claude), 'CODEX_HOME': str(codex)})
+        command = self.command('--share', 'ai', env={'CLAUDE_CONFIG_DIR': str(claude), 'CODEX_HOME': str(codex),
+                                                     'COPILOT_HOME': str(copilot)})
 
         self.assertIn(f'type=bind,source={claude},target={claude}', values(command, '--mount'))
         self.assertIn(f'CLAUDE_CONFIG_DIR={claude}', values(command, '--env'))
         self.assertIn(f'CODEX_HOME={codex}', values(command, '--env'))
         self.assertTrue(any(value.startswith(f'{codex}/packages:') for value in values(command, '--tmpfs')))
+        self.assertIn(f'type=bind,source={copilot},target={copilot}', values(command, '--mount'))
+        self.assertIn(f'COPILOT_HOME={copilot}', values(command, '--env'))
+        self.assertTrue(any(value.startswith(f'{copilot}/ide:') for value in values(command, '--tmpfs')))
 
     def test_legacy_claude_state_requires_explicit_migration(self):
         legacy = self.home / '.claude.json'

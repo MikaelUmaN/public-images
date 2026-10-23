@@ -93,7 +93,7 @@ date and evidence:
 
 - an expiring line whose advance a coupling rule blocks (kubectl without `cluster-minor`)
 - a package with two maintained majors (Helm)
-- the pin-floating policy when fast-moving CLIs carry version-titled open issues (bun, codex)
+- the pin-floating policy when fast-moving CLIs carry version-titled open issues (bun, codex, copilot)
 - an End-of-life warning (its own workflow below)
 
 An expiring LTS with a newer line is not a question: the skill's rule advances it.
