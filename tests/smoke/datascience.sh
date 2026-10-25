@@ -23,6 +23,12 @@ version_check bun bun --version
 check 'node resolves to bun' node -e 'console.log(process.version, process.versions.bun)'
 version_check playwright playwright --version
 version_check codex codex --version
+# Checked before any copilot run in this script creates the cache.
+check 'image ships no copilot runtime cache' test ! -e /home/ubuntu/.cache/copilot
+version_check copilot copilot --version
+# Bun filters optional dependencies by libc from 1.4.4; the musl build is dead weight on glibc.
+check 'copilot installs only the glibc binary' \
+  test ! -e "$BUN_INSTALL/install/global/node_modules/@github/copilot-linuxmusl-x64"
 version_check dotenvx dotenvx --version
 
 version_check ruff ruff --version

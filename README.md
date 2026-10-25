@@ -4,7 +4,7 @@ Docker images for analytical developer work, published as `mikaeluman/<image>:la
 
 | Image | Builds on | Adds |
 |---|---|---|
-| `datascience` | `ubuntu:24.04` | uv-managed Python 3.13 and JupyterLab, DuckDB, Nushell, AWS and Kubernetes CLIs, bun with Playwright, Chrome, Claude Code, Codex |
+| `datascience` | `ubuntu:24.04` | uv-managed Python 3.13 and JupyterLab, DuckDB, Nushell, AWS and Kubernetes CLIs, bun with Playwright, Chrome, Claude Code, Codex, Copilot CLI |
 | `rust-datascience` | `datascience` | Rust toolchain, cargo tools, evcxr REPL and Jupyter kernel, libduckdb, Nushell polars plugin |
 | `net-datascience` | `rust-datascience` | .NET 8 and 10 SDKs, F# tools |
 | `quarto-datascience` | `net-datascience` | Quarto CLI, extended TeX Live |
@@ -64,17 +64,20 @@ shared settings. Missing optional resources are skipped.
 
 | Group | Host resources |
 |---|---|
-| `ai` | `~/.claude`, `~/.codex`, including authentication, settings and sessions; `CLAUDE_CONFIG_DIR` and `CODEX_HOME` override these directories |
+| `ai` | `~/.claude`, `~/.codex`, `~/.copilot`, including authentication, settings and sessions; `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `COPILOT_HOME` override these directories |
 | `git` | `~/.gitconfig`, `~/.config/git`, `~/.config/gh`, `~/.ssh`, `~/.gnupg` |
 | `cloud` | `~/.aws`, `~/.kube`, `~/.snowflake`, `~/.snowsql` |
 | `shell` | `~/.ipython`, `~/.config/btop`, `~/.config/htop`, `~/.config/uv`, `~/.jupyter/lab`, `~/.local/state/vim`; Bash, DuckDB and Python history files; read-only `~/.vimrc`, `~/.sqliterc`, `~/.config/nushell/config.nu`, `~/.config/nushell/env.nu` |
 | `caches` | `~/.cargo/registry`, `~/.cargo/git`, `~/.bun/install/cache`, `~/.nuget/packages` |
 
 AI configuration directories must be canonical absolute paths. Existing directories are mounted
-at the same paths inside the container. Codex packages, sockets and temporary state, and Claude
-IDE/session environment state use container-local tmpfs mounts. The launcher creates missing
-mountpoint directories within shared AI directories with host ownership and mode 0700 after
-validating the image. Installed tool binaries remain supplied by the image.
+at the same paths inside the container. Codex packages, sockets and temporary state, Claude
+IDE/session environment state and Copilot IDE state use container-local tmpfs mounts. The
+launcher creates missing mountpoint directories within shared AI directories with host ownership
+and mode 0700 after validating the image. Installed tool binaries remain supplied by the image.
+Copilot's cache, including its auto-update downloads, stays outside `~/.copilot` and remains
+container-local. Without a credential store in the container, `/login` there saves its token in
+plain text in `~/.copilot/config.json`; sharing the `git` group lets Copilot use the `gh` login.
 
 Claude's legacy `~/.claude.json` requires a one-time migration before AI sharing: close host
 Claude sessions, move that file to `$HOME/.claude/.claude.json` after confirming the destination
@@ -122,13 +125,13 @@ system binaries retain their system locations and use `sudo` for updates.
 |---|---|
 | uv tools and native CLI launchers | `/opt/devtools/bin` |
 | uv Python and tool environments | `/opt/devtools/python`, `/opt/devtools/uv` |
-| Bun and global packages, including Codex | `/opt/devtools/.bun` |
+| Bun and global packages, including Codex and Copilot CLI | `/opt/devtools/.bun` |
 | Cargo and rustup | `/opt/devtools/cargo`, `/opt/devtools/rustup` |
 | Claude native versions | `/opt/devtools/claude` |
 | .NET global tools | `/opt/devtools/dotnet` |
 
 The entrypoint supplies the native installers' home-directory links to these locations.
-`claude update`, `codex update`, `bun upgrade`, `rustup update`, and
+`claude update`, `codex update`, `copilot update`, `bun upgrade`, `rustup update`, and
 `dotnet tool update --global` retain their normal installation interfaces. Updates persist
 for the lifetime of the container; a newly created container starts from the image's pins.
 For a uv tool, `uv tool install TOOL@latest` replaces the image's exact version pin;

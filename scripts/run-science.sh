@@ -189,21 +189,25 @@ fi
 if [[ "${SHARING[ai]}" == true ]]; then
   claude_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
   codex_dir="${CODEX_HOME:-$HOME/.codex}"
-  for directory in "$claude_dir" "$codex_dir"; do
+  copilot_dir="${COPILOT_HOME:-$HOME/.copilot}"
+  for directory in "$claude_dir" "$codex_dir" "$copilot_dir"; do
     [[ "$directory" == /* && "$(realpath --canonicalize-missing "$directory")" == "$directory" ]] ||
       fail "AI configuration directory must be canonical and absolute: $directory"
   done
   if [[ -z "${CLAUDE_CONFIG_DIR:-}" && -f "$HOME/.claude.json" ]]; then
     fail 'Claude uses ~/.claude.json; configure CLAUDE_CONFIG_DIR and migrate its state before sharing (see README.md)'
   fi
-  DOCKER_OPTS+=(--env "CLAUDE_CONFIG_DIR=$claude_dir" --env "CODEX_HOME=$codex_dir")
+  DOCKER_OPTS+=(--env "CLAUDE_CONFIG_DIR=$claude_dir" --env "CODEX_HOME=$codex_dir"
+    --env "COPILOT_HOME=$copilot_dir")
   optional_dir "$claude_dir"
   optional_dir "$codex_dir"
+  optional_dir "$copilot_dir"
   # Packages and process-local state belong to each container; settings and sessions are shared.
   for directory in packages app-server-control app-server-daemon ipc tmp .tmp shell_snapshots; do
     local_state "$codex_dir/$directory"
   done
   for directory in ide session-env shell-snapshots; do local_state "$claude_dir/$directory"; done
+  local_state "$copilot_dir/ide"
 fi
 
 if [[ "$ENABLE_GUI" == true && ( -z "${DISPLAY:-}" || ! -d /mnt/wslg ) ]]; then

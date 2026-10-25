@@ -14,7 +14,7 @@ link pulling `mikaeluman/<base>:latest`. `latex` and `pico` build from `ubuntu:2
 
 | Image | Adds |
 |---|---|
-| datascience | uv-managed Python 3.13 with JupyterLab and the `pyproject.toml` stack (synced at first use), DuckDB, Nushell, AWS CLI, kubectl, k9s, helm, bun with Playwright and dotenvx, Chrome, Claude Code, Codex, gh, glow, bubblewrap |
+| datascience | uv-managed Python 3.13 with JupyterLab and the `pyproject.toml` stack (synced at first use), DuckDB, Nushell, AWS CLI, kubectl, k9s, helm, bun with Playwright and dotenvx, Chrome, Claude Code, Codex, Copilot CLI, gh, glow, bubblewrap |
 | rust-datascience | rustup toolchain, cargo tools, evcxr REPL and Jupyter kernel, libduckdb, `nu_plugin_polars` |
 | net-datascience | .NET 8 and 10 SDKs from apt; fantomas, fsautocomplete, fsdocs, fsharplint |
 | quarto-datascience | Quarto CLI, extended TeX Live, Quarto helper packages appended to `pyproject.toml` |
@@ -23,7 +23,8 @@ link pulling `mikaeluman/<base>:latest`. `latex` and `pico` build from `ubuntu:2
 
 `--build-arg USE_TORCH_GPU=true` on datascience swaps the CPU PyTorch index for CUDA. CI is a
 manual dispatch of one image (`.github/workflows/datascience.yml`): build, smoke test, push
-unless `push=false`.
+unless `push=false`. Only the default branch pushes `:latest`; another branch pushes a tag named
+after the branch, and a git tag pushes that tag.
 
 ## Routing
 
@@ -70,16 +71,17 @@ personal identities, host paths, configuration and launcher choices belong to th
 
 Root installs apt packages and `/usr/local` binaries. User-managed installations live under
 `/opt/devtools`: bun in `.bun` (`node` links to bun), uv environments in `uv`, Python in `python`,
-Claude versions in `claude`, Codex as a Bun global package, rustup in `rustup`, cargo in `cargo`,
-and .NET global tools in `dotnet`. Shared launchers live in `bin`; tool bin dirs are on `PATH`.
-The entrypoint seeds home configuration from `/etc/skel` and supplies native installation links.
-Runtime account setup changes ownership only on unmounted image files, then drops privileges.
+Claude versions in `claude`, Codex and Copilot CLI as Bun global packages, rustup in `rustup`,
+cargo in `cargo`, and .NET global tools in `dotnet`. Shared launchers live in `bin`; tool bin
+dirs are on `PATH`. The entrypoint seeds home configuration from `/etc/skel` and supplies native
+installation links. Runtime account setup changes ownership only on unmounted image files, then
+drops privileges.
 
 Release downloads are verified where the vendor publishes a signature or checksum: GPG for the
 AWS CLI (`awscliv2-public-key.asc`); SHA256 for kubectl, k9s, helm, Nushell, rustup and Quarto.
-Bun verifies registry package integrity for Codex. The DuckDB CLI, libduckdb, the uv,
-bun and Claude Code installers and the Pico SDK and picotool clones are fetched at a versioned
-URL or tag with a version assertion and no checksum.
+Bun verifies registry package integrity for Codex and Copilot CLI. The DuckDB CLI, libduckdb,
+the uv, bun and Claude Code installers and the Pico SDK and picotool clones are fetched at a
+versioned URL or tag with a version assertion and no checksum.
 
 ## apt caching
 
@@ -106,6 +108,7 @@ an existing image. The launcher remains outside the image filesystem.
 | Chrome, headless | `--no-sandbox` on every invocation | non-root uid without `SYS_ADMIN` |
 | Chrome, headed | `--shm-size=1g` and a display forwarded by the host | tabs crash on Docker's 64 MB `/dev/shm` |
 | Codex CLI | `--security-opt seccomp=unconfined` | its bubblewrap sandbox needs user namespaces, which the default profile blocks |
+| Copilot CLI | nothing; its optional local sandbox (`/sandbox enable`) is unsupported | the Linux sandbox also needs slirp4netns, iptables and `/dev/net/tun`, which the image and a default container lack; Copilot runs unsandboxed by default |
 | perf | the host binary mounted over `/usr/local/bin/perf` and `/usr/bin/perf`, plus `--cap-add PERFMON` or `SYS_PTRACE` (`SYS_ADMIN` for everything) | the image ships only the libraries perf links against |
 | Home mounts | selected config directories and files; JupyterLab settings at `~/.jupyter/lab`, Nushell `config.nu` and `env.nu`, Vim state at `~/.local/state/vim` | home templates include the Jupyter server config and Nushell plugin registry; native installation links remain image-owned |
 | Tool caches | `/opt/devtools/cargo/registry`, `/opt/devtools/cargo/git`, `/opt/devtools/.bun/install/cache` | cache-only mounts preserve the installed toolchains |
