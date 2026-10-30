@@ -19,6 +19,7 @@ check 'user bin dir on PATH' bash -c 'case ":$PATH:" in *":$HOME/.local/bin:"*) 
 version_check uv uv --version
 check 'root-installed uv supports self-update' bash -c 'sudo -n uv self update "$(uv --version | cut -d " " -f 2)"'
 check 'uv python 3.13 installed' bash -c 'uv python list --only-installed | grep -F cpython-3.13'
+check 'python3 resolves to uv python 3.13' bash -c 'python3 --version | grep -F "Python 3.13"'
 version_check bun bun --version
 check 'node resolves to bun' node -e 'console.log(process.version, process.versions.bun)'
 version_check playwright playwright --version
@@ -26,6 +27,8 @@ version_check codex codex --version
 # Checked before any copilot run in this script creates the cache.
 check 'image ships no copilot runtime cache' test ! -e /home/ubuntu/.cache/copilot
 version_check copilot copilot --version
+check 'copilot launcher precedes the bun link' test "$(readlink -f "$(command -v copilot)")" = /opt/devtools/bin/copilot
+check 'copilot launcher disables the nested sandbox' grep -qF -- --no-sandbox /opt/devtools/bin/copilot
 # Bun filters optional dependencies by libc from 1.4.4; the musl build is dead weight on glibc.
 check 'copilot installs only the glibc binary' \
   test ! -e "$BUN_INSTALL/install/global/node_modules/@github/copilot-linuxmusl-x64"

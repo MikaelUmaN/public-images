@@ -43,7 +43,11 @@ the last value. Explicit project/data directories must exist; nested project/dat
 to one mount. Each project keeps its absolute host path inside the container.
 
 The shell uses a terminal and forwards `TERM` and `COLORTERM`. Codex's sandbox requires the
-launcher's `seccomp=unconfined` setting. `--name NAME` retains the container after exit; otherwise
+launcher's `seccomp=unconfined` setting. The image's `copilot` command starts Copilot with
+`--no-sandbox`: its Linux sandbox needs slirp4netns, iptables and `/dev/net/tun`, which a container
+lacks, and the container is the isolation boundary. The flag lasts one session, so a shared
+`~/.copilot/settings.json` keeps the host's sandbox setting; avoid `/sandbox enable` inside the
+container, which saves to that file. `--name NAME` retains the container after exit; otherwise
 Docker removes it. An additional shell uses `docker exec --user "$(id --user --name)" -it NAME bash`.
 `--gui` requires WSLg and `DISPLAY`. `--perf` mounts the host PATH's perf binary; profiling also
 requires an appropriate capability (`--perfmon`, `--ptrace` or `--sys-admin`).
