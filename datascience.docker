@@ -218,8 +218,10 @@ RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" && \
     bun install -g "playwright@${PLAYWRIGHT_VERSION}" "@dotenvx/dotenvx@${DOTENVX_VERSION}"
 
 # --default links python and python3 into /opt/devtools/bin, so hooks and scripts calling python3 run.
-RUN uv python install --default 3.13 && \
-    python3 --version | grep -F "Python 3.13"
+# The flag is a uv preview feature; opting in keeps the experimental warning out of the build log.
+RUN uv python install --default --preview-features python-install-default 3.13 && \
+    python3 --version | grep -F "Python 3.13" && \
+    python --version | grep -F "Python 3.13"
 WORKDIR $HOME/jupyter
 
 # Native launcher paths link to writable installations under /opt/devtools.

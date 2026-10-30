@@ -128,7 +128,7 @@ system binaries retain their system locations and use `sudo` for updates.
 | Installation | Location |
 |---|---|
 | uv tools and native CLI launchers | `/opt/devtools/bin` |
-| uv Python and tool environments | `/opt/devtools/python`, `/opt/devtools/uv` |
+| uv Python and tool environments; `python`, `python3` and `python3.13` link to the uv-managed 3.13 | `/opt/devtools/python`, `/opt/devtools/uv` |
 | Bun and global packages, including Codex and Copilot CLI | `/opt/devtools/.bun` |
 | Cargo and rustup | `/opt/devtools/cargo`, `/opt/devtools/rustup` |
 | Claude native versions | `/opt/devtools/claude` |

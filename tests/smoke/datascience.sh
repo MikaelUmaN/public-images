@@ -20,6 +20,7 @@ version_check uv uv --version
 check 'root-installed uv supports self-update' bash -c 'sudo -n uv self update "$(uv --version | cut -d " " -f 2)"'
 check 'uv python 3.13 installed' bash -c 'uv python list --only-installed | grep -F cpython-3.13'
 check 'python3 resolves to uv python 3.13' bash -c 'python3 --version | grep -F "Python 3.13"'
+check 'python links into /opt/devtools' bash -c 'for p in python python3; do readlink -f "$(command -v "$p")" | grep -F /opt/devtools/python/; done'
 version_check bun bun --version
 check 'node resolves to bun' node -e 'console.log(process.version, process.versions.bun)'
 version_check playwright playwright --version
