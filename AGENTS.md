@@ -47,8 +47,8 @@ after the branch, and a git tag pushes that tag.
 Every toolchain and tool is an exact `ARG <NAME>_VERSION`, never `stable` or `latest`, asserted
 at install (`<tool> --version | grep -F`) and echoed by `LABEL org.opencontainers.image.<tool>.version`.
 Designed exceptions: Ubuntu apt (including `dotnet-sdk-*` and `texlive-*`), the vendor apt
-repositories (Chrome, Charm, GitHub CLI), `uv python install 3.13` (minor pinned),
-and `pyproject.toml` dependencies (declared, never pinned).
+repositories (Chrome, Charm, GitHub CLI), `uv python install --default 3.13` (minor pinned; also
+links `python` and `python3`), and `pyproject.toml` dependencies (declared, never pinned).
 
 - A broken build is fixed by the pinned combination that works, never by widening a pin,
   dropping `--locked` or adding `|| true`.
@@ -108,7 +108,7 @@ an existing image. The launcher remains outside the image filesystem.
 | Chrome, headless | `--no-sandbox` on every invocation | non-root uid without `SYS_ADMIN` |
 | Chrome, headed | `--shm-size=1g` and a display forwarded by the host | tabs crash on Docker's 64 MB `/dev/shm` |
 | Codex CLI | `--security-opt seccomp=unconfined` | its bubblewrap sandbox needs user namespaces, which the default profile blocks |
-| Copilot CLI | nothing; its optional local sandbox (`/sandbox enable`) is unsupported | the Linux sandbox also needs slirp4netns, iptables and `/dev/net/tun`, which the image and a default container lack; Copilot runs unsandboxed by default |
+| Copilot CLI | nothing; `/opt/devtools/bin/copilot` (`copilot-launcher.sh`) adds `--no-sandbox` unless `--sandbox` is given; `/sandbox enable` inside a container breaks shell commands and hooks and saves to a shared `settings.json` | the Linux sandbox always runs in a private network namespace needing slirp4netns, iptables and `/dev/net/tun`, which the image and a default container lack; Copilot's probe checks only `bwrap` (installed for Codex), so a shared `sandbox.enabled` would otherwise fail every command |
 | perf | the host binary mounted over `/usr/local/bin/perf` and `/usr/bin/perf`, plus `--cap-add PERFMON` or `SYS_PTRACE` (`SYS_ADMIN` for everything) | the image ships only the libraries perf links against |
 | Home mounts | selected config directories and files; JupyterLab settings at `~/.jupyter/lab`, Nushell `config.nu` and `env.nu`, Vim state at `~/.local/state/vim` | home templates include the Jupyter server config and Nushell plugin registry; native installation links remain image-owned |
 | Tool caches | `/opt/devtools/cargo/registry`, `/opt/devtools/cargo/git`, `/opt/devtools/.bun/install/cache` | cache-only mounts preserve the installed toolchains |

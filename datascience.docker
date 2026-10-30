@@ -217,7 +217,11 @@ RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" && \
     bun --version | grep -Fx "${BUN_VERSION}" && \
     bun install -g "playwright@${PLAYWRIGHT_VERSION}" "@dotenvx/dotenvx@${DOTENVX_VERSION}"
 
-RUN uv python install 3.13
+# --default links python and python3 into /opt/devtools/bin, so hooks and scripts calling python3 run.
+# The flag is a uv preview feature; opting in keeps the experimental warning out of the build log.
+RUN uv python install --default --preview-features python-install-default 3.13 && \
+    python3 --version | grep -F "Python 3.13" && \
+    python --version | grep -F "Python 3.13"
 WORKDIR $HOME/jupyter
 
 # Native launcher paths link to writable installations under /opt/devtools.
@@ -233,7 +237,9 @@ RUN bun install --global "@openai/codex@${CODEX_VERSION}" && \
 
 # Bun manages Copilot CLI; its loader starts the native binary from the glibc platform package.
 # Its first run unpacks about 240 MB into the cache; each runtime home unpacks its own copy.
+# The launcher in /opt/devtools/bin precedes Bun's link and starts Copilot without its sandbox.
 ARG COPILOT_VERSION=1.0.103
+COPY --chown=$USER:$USER --chmod=755 copilot-launcher.sh /opt/devtools/bin/copilot
 RUN copilot_cache="$(mktemp -d)" && \
     bun install --global "@github/copilot@${COPILOT_VERSION}" && \
     COPILOT_CACHE_HOME="$copilot_cache" copilot --version | grep -F "${COPILOT_VERSION}" && \
