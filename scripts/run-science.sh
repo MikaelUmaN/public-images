@@ -119,6 +119,8 @@ DOCKER_OPTS=(
 for variable in TERM COLORTERM; do
   [[ -z "${!variable:-}" ]] || DOCKER_OPTS+=(--env "$variable")
 done
+# Copilot CLI's sandbox reaches the network from its private namespace through the tun device.
+[[ ! -c /dev/net/tun ]] || DOCKER_OPTS+=(--device /dev/net/tun)
 
 declare -A MOUNT_TARGETS=()
 validate_target() {

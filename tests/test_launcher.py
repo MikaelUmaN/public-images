@@ -87,6 +87,15 @@ class LauncherTests(unittest.TestCase):
         self.assertFalse((self.home / '.copilot/ide').exists())
         self.assertFalse(self.calls.exists())
 
+    @unittest.skipUnless(Path('/dev/net/tun').is_char_device(), 'the host has no tun device')
+    def test_host_tun_device_is_forwarded(self):
+        (self.home / 'dev').mkdir()
+
+        commands = [self.command(), self.command('--preset', 'defaults')]
+
+        for command in commands:
+            self.assertEqual(values(command, '--device'), ['/dev/net/tun'])
+
     def test_explicit_options_override_preset_in_either_order(self):
         (self.home / 'data').mkdir()
         (self.home / '.codex').mkdir()
