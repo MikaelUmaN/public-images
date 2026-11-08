@@ -29,7 +29,9 @@ version_check codex codex --version
 check 'image ships no copilot runtime cache' test ! -e /home/ubuntu/.cache/copilot
 version_check copilot copilot --version
 check 'copilot launcher precedes the bun link' test "$(readlink -f "$(command -v copilot)")" = /opt/devtools/bin/copilot
-check 'copilot launcher disables the nested sandbox' grep -qF -- --no-sandbox /opt/devtools/bin/copilot
+# The smoke container has no /dev/net/tun, so the launcher starts Copilot without its sandbox.
+check 'copilot launcher adds --no-sandbox without /dev/net/tun' \
+  bash -c 'bash -x /opt/devtools/bin/copilot --version 2>&1 | grep -F -- "copilot --no-sandbox --version"'
 # Bun filters optional dependencies by libc from 1.4.4; the musl build is dead weight on glibc.
 check 'copilot installs only the glibc binary' \
   test ! -e "$BUN_INSTALL/install/global/node_modules/@github/copilot-linuxmusl-x64"
@@ -70,6 +72,9 @@ else
 fi
 
 check 'bwrap --version' bwrap --version
+check 'slirp4netns --version' slirp4netns --version
+check 'iptables uses nf_tables' bash -c 'iptables --version | grep -F nf_tables'
+check 'system python3 runs the standard library' /usr/bin/python3 -c 'import json, re, tempfile'
 version_check claude_code claude --version
 check 'gh --version' gh --version
 check 'glow --version' glow --version

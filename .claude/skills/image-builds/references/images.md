@@ -39,5 +39,5 @@ mounts: the chain after datascience costs 60–120 min locally and 55 min on Git
 - `tests/smoke/lib.sh` fails a check on a non-zero exit or on `warning|warn|error|fatal|panic|traceback|deprecate(d)` in its output; `allow` lines carry a reason.
 - A plain smoke run costs 1–3 min per image; `--slow` runs the project's `uv sync` (torch included) on datascience and quarto-datascience.
 - `--perf` needs the host's `/usr/local/bin/perf`; without it the smoke script prints `skip perf`.
-- `--sandbox` adds `--security-opt seccomp=unconfined` and probes `bwrap --unshare-all` first; it matters after a Codex or bubblewrap change (Copilot CLI's own sandbox is unsupported in the images).
+- `--sandbox` adds `--security-opt seccomp=unconfined` and probes `bwrap --unshare-all` first; it matters after a Codex or bubblewrap change. Copilot CLI's sandbox additionally needs `--device /dev/net/tun`, which the smoke run omits, so its checks cover the packages and the launcher's `--no-sandbox` fallback.
 - Chrome inside the smoke run logs two container-only lines (`Failed to connect to the bus`, `/etc/machine-id contains 0 characters`), both allowlisted in `datascience.sh`.
