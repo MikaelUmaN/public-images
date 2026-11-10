@@ -26,13 +26,14 @@ mounts: the chain after datascience costs 60–120 min locally and 55 min on Git
 
 | Fact | Value |
 |---|---|
-| Workflow | `.github/workflows/datascience.yml`, `workflow_dispatch` only; run name `<image> push=<bool>` |
-| Inputs | `image` (choice of the six), `push` (boolean, default `true`) |
+| Workflow | `.github/workflows/datascience.yml`, `workflow_dispatch` and `workflow_call`; run name `<image> push=<bool>` |
+| Build all | `.github/workflows/build-all.yml`, `workflow_dispatch` with `push`; calls `datascience.yml` once per image, the chain serial through `needs`, `latex` and `pico` alongside; a failed link skips the links after it; run name `all images push=<bool>` |
+| Inputs | `image` (choice of the six; a string under `workflow_call`), `push` (boolean, default `true`) |
 | Steps | checkout, Docker Hub login, `docker build`, smoke (including slow checks) and runtime-account tests, push when `push` is true |
 | Tag | `latest` from the default branch, the sanitized branch name from any other branch, the git tag from a tag ref |
-| Dispatch | `gh workflow run datascience.yml --ref <branch> -f image=<image> -f push=<true\|false>` |
+| Dispatch | `gh workflow run datascience.yml --ref <branch> -f image=<image> -f push=<true\|false>`; all six: `gh workflow run build-all.yml --ref <branch> -f push=<true\|false>` |
 | Runner | `ubuntu-latest`, no cache between runs, every build cold; observed: datascience 4 min, pico 5 min, rust-datascience 44 min, net-datascience 5 min, quarto-datascience 6 min |
-| Chain on CI | serial: the base run must have pushed before the next link is dispatched |
+| Chain on CI | serial: the base run must have pushed before the next link is dispatched. `build-all.yml` from the default branch with `push=true` publishes the chain in order; from another branch or with `push=false`, each link builds on the published `:latest` base |
 
 ## Test-time facts
 

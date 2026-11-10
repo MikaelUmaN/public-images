@@ -23,7 +23,8 @@ link pulling `mikaeluman/<base>:latest`. `latex` and `pico` build from `ubuntu:2
 
 `--build-arg USE_TORCH_GPU=true` on datascience swaps the CPU PyTorch index for CUDA. CI is a
 manual dispatch of one image (`.github/workflows/datascience.yml`): build, smoke test, push
-unless `push=false`. Only the default branch pushes `:latest`; another branch pushes a tag named
+unless `push=false`. `.github/workflows/build-all.yml` runs it for all six, each chain link after
+its base. Only the default branch pushes `:latest`; another branch pushes a tag named
 after the branch, and a git tag pushes that tag.
 
 ## Routing

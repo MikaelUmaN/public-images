@@ -1,0 +1,57 @@
+name: Build All Images
+run-name: all images push=${{ inputs.push }}
+
+on: # Builds all six images; each chain link starts after its base has built and, with push, published.
+  workflow_dispatch:
+    inputs:
+      push:
+        type: boolean
+        description: Push each image to Docker Hub after its smoke test
+        default: true
+
+jobs:
+
+  datascience:
+    uses: ./.github/workflows/datascience.yml
+    with:
+      image: datascience
+      push: ${{ inputs.push }}
+    secrets: inherit
+
+  rust-datascience:
+    needs: datascience
+    uses: ./.github/workflows/datascience.yml
+    with:
+      image: rust-datascience
+      push: ${{ inputs.push }}
+    secrets: inherit
+
+  net-datascience:
+    needs: rust-datascience
+    uses: ./.github/workflows/datascience.yml
+    with:
+      image: net-datascience
+      push: ${{ inputs.push }}
+    secrets: inherit
+
+  quarto-datascience:
+    needs: net-datascience
+    uses: ./.github/workflows/datascience.yml
+    with:
+      image: quarto-datascience
+      push: ${{ inputs.push }}
+    secrets: inherit
+
+  latex:
+    uses: ./.github/workflows/datascience.yml
+    with:
+      image: latex
+      push: ${{ inputs.push }}
+    secrets: inherit
+
+  pico:
+    uses: ./.github/workflows/datascience.yml
+    with:
+      image: pico
+      push: ${{ inputs.push }}
+    secrets: inherit

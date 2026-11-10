@@ -1,7 +1,15 @@
 name: Datascience Image CI
 run-name: ${{ inputs.image }} push=${{ inputs.push }}
 
-on: # Only manual runs because the idea is to have multiple images and choose what to build.
+on: # Builds one chosen image, on a manual run or when called by another workflow.
+  workflow_call:
+    inputs:
+      image:
+        type: string
+        required: true
+      push:
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       image:
@@ -56,17 +64,17 @@ jobs:
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     
     - name: Build the Docker image
-      run: docker build . --file ${{ github.event.inputs.image }}.docker --tag ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image }}:${{ env.TAG }}
+      run: docker build . --file ${{ inputs.image }}.docker --tag ${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.image }}:${{ env.TAG }}
 
     - name: Smoke test
-      run: docker run --rm --env SMOKE_SLOW=1 -v "$PWD/tests:/tests:ro" ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image }}:${{ env.TAG }} bash /tests/smoke/${{ github.event.inputs.image }}.sh
+      run: docker run --rm --env SMOKE_SLOW=1 -v "$PWD/tests:/tests:ro" ${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.image }}:${{ env.TAG }} bash /tests/smoke/${{ inputs.image }}.sh
 
     - name: Runtime account tests
       env:
-        RUNTIME_TEST_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image }}:${{ env.TAG }}
+        RUNTIME_TEST_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.image }}:${{ env.TAG }}
       run: python3 -B tests/test_runtime_user.py -v
 
     - name: Push Docker Image
       if: ${{ inputs.push }}
       run: |
-        docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.inputs.image }}:${{ env.TAG }}
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ inputs.image }}:${{ env.TAG }}
