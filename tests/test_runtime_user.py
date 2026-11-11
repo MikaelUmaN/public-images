@@ -7,6 +7,9 @@ import unittest
 
 IMAGE = os.environ.get("RUNTIME_TEST_IMAGE", "mikaeluman/datascience:latest")
 ENTRYPOINT = os.environ.get("RUNTIME_TEST_ENTRYPOINT")
+# A changed UID re-owns all of /opt/devtools at container start: about 100 s on a CI runner
+# for the larger images.
+TIMEOUT_SECONDS = 600
 
 
 def run_container(command, *options):
@@ -21,7 +24,7 @@ def run_container(command, *options):
             *entrypoint_options,
             *options, IMAGE, "bash", "-ec", command,
         ],
-        capture_output=True, text=True, timeout=120,
+        capture_output=True, text=True, timeout=TIMEOUT_SECONDS,
     )
 
 
