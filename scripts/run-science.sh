@@ -12,7 +12,7 @@ ENABLE_GUI=""
 ADD_PERF_MOUNT=false
 DRY_RUN=false
 EXTRA_ARGS=()
-CAPABILITIES=()
+declare -A CAPABILITIES=()
 STATE_DIRS=()
 declare -A SHARING=()
 HOST_USER="$(id --user --name)"
@@ -30,6 +30,7 @@ Usage: $0 [OPTIONS] [-- DOCKER_ARGS...]
   -d, --data-dir DIR      Additional data directory (default: none)
       --no-data          Disable the preset data mount
       --preset defaults  Use ~/dev, optional ~/data, all sharing, host network and WSLg
+      --preset performance  Use defaults plus --perf, --perfmon and --ptrace
       --share GROUP      Share ai, git, cloud, shell or caches (repeatable)
       --no-share GROUP   Disable a sharing group (repeatable)
       --network MODE     Docker network (default: bridge)
@@ -45,7 +46,8 @@ Usage: $0 [OPTIONS] [-- DOCKER_ARGS...]
 
 Explicit options override the preset in any order; repeated explicit options use the last value.
 Sharing grants container access to host settings and credentials; see README.md for the groups.
-The defaults preset enables WSLg only when available; --gui requires WSLg.
+Presets enable WSLg only when available; --gui requires WSLg.
+The performance preset fails when perf is missing from the host PATH.
 
 The container runs as $HOST_USER ($HOST_UID:$HOST_GID), with HOME=$HOME.
 Additional shells use: docker exec --user $HOST_USER -it NAME bash
@@ -61,7 +63,9 @@ while (( $# )); do
         -n|--name) NAME="$2" ;;
         -p|--project-dir) PROJECT_DIR="$2" ;;
         -d|--data-dir) DATA_DIR="$2"; DATA_EXPLICIT=true ;;
-        --preset) [[ "$2" == defaults ]] || fail "Unknown preset: $2"; PRESET="$2" ;;
+        --preset)
+          case "$2" in defaults|performance) ;; *) fail "Unknown preset: $2" ;; esac
+          PRESET="$2" ;;
         --network) NETWORK="$2" ;;
         --share|--no-share)
           case "$2" in ai|git|cloud|shell|caches) ;; *) fail "Unknown sharing group: $2" ;; esac
@@ -70,9 +74,9 @@ while (( $# )); do
         -e|--env) EXTRA_ARGS+=(--env "$2") ;;
       esac
       shift 2 ;;
-    --sys-admin) CAPABILITIES+=(--cap-add SYS_ADMIN); shift ;;
-    --ptrace) CAPABILITIES+=(--cap-add SYS_PTRACE); shift ;;
-    --perfmon) CAPABILITIES+=(--cap-add PERFMON); shift ;;
+    --sys-admin) CAPABILITIES[SYS_ADMIN]=1; shift ;;
+    --ptrace) CAPABILITIES[SYS_PTRACE]=1; shift ;;
+    --perfmon) CAPABILITIES[PERFMON]=1; shift ;;
     --perf) ADD_PERF_MOUNT=true; shift ;;
     --no-data) DATA_DIR=""; DATA_EXPLICIT=true; shift ;;
     --gui) ENABLE_GUI=true; shift ;;
@@ -89,17 +93,22 @@ done
 [[ "$HOME" == /home/* && "$(realpath --canonicalize-missing "$HOME")" == "$HOME" ]] ||
   fail 'The host home must be a canonical directory beneath /home'
 
-if [[ "$PRESET" == defaults ]]; then
+if [[ -n "$PRESET" ]]; then
   PROJECT_DIR="${PROJECT_DIR:-$HOME/dev}"
   NETWORK="${NETWORK:-host}"
   ENABLE_GUI="${ENABLE_GUI:-auto}"
   if [[ "$DATA_EXPLICIT" == false && -e "$HOME/data" ]]; then DATA_DIR="$HOME/data"; fi
 fi
+if [[ "$PRESET" == performance ]]; then
+  ADD_PERF_MOUNT=true
+  CAPABILITIES[PERFMON]=1
+  CAPABILITIES[SYS_PTRACE]=1
+fi
 PROJECT_DIR="${PROJECT_DIR:-$PWD}"
 NETWORK="${NETWORK:-bridge}"
 ENABLE_GUI="${ENABLE_GUI:-false}"
 for group in ai git cloud shell caches; do
-  SHARING[$group]="${SHARING[$group]:-$([[ "$PRESET" == defaults ]] && echo true || echo false)}"
+  SHARING[$group]="${SHARING[$group]:-$([[ -n "$PRESET" ]] && echo true || echo false)}"
 done
 [[ -d "$PROJECT_DIR" ]] || fail "Project directory does not exist: $PROJECT_DIR"
 PROJECT_DIR="$(realpath "$PROJECT_DIR")"
@@ -248,7 +257,10 @@ for (( index=0; index<${#EXTRA_ARGS[@]}; index++ )); do
       ;;
   esac
 done
-DOCKER_OPTS+=("${CAPABILITIES[@]}" "${EXTRA_ARGS[@]}")
+for capability in SYS_ADMIN SYS_PTRACE PERFMON; do
+  [[ -z "${CAPABILITIES[$capability]+x}" ]] || DOCKER_OPTS+=(--cap-add "$capability")
+done
+DOCKER_OPTS+=("${EXTRA_ARGS[@]}")
 if [[ "$DRY_RUN" == true ]]; then
   printf '%q ' docker run "${DOCKER_OPTS[@]}" "$IMAGE"
   printf '\n'

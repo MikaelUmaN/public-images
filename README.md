@@ -25,17 +25,19 @@ docker pull mikaeluman/rust-datascience:latest
 ./scripts/run-science.sh
 ./scripts/run-science.sh --share ai --project-dir /home/analyst/projects
 ./scripts/run-science.sh --preset defaults --no-share cloud --no-gui
+./scripts/run-science.sh --preset performance
 ./scripts/run-science.sh --image mikaeluman/latex:latest --dry-run
 ```
 
-| Setting | Plain invocation | `--preset defaults` |
-|---|---|---|
-| Image | `mikaeluman/rust-datascience:latest` | same |
-| Project and initial working directory | current directory | `$HOME/dev` |
-| Data | none | `$HOME/data`, when present |
-| Sharing | none | all five groups below |
-| Network | Docker bridge | host |
-| GUI | disabled | WSLg when available |
+| Setting | Plain invocation | `--preset defaults` | `--preset performance` |
+|---|---|---|---|
+| Image | `mikaeluman/rust-datascience:latest` | same | same |
+| Project and initial working directory | current directory | `$HOME/dev` | `$HOME/dev` |
+| Data | none | `$HOME/data`, when present | `$HOME/data`, when present |
+| Sharing | none | all five groups below | all five groups below |
+| Network | Docker bridge | host | host |
+| GUI | disabled | WSLg when available | WSLg when available |
+| Profiling | none | none | host perf mounted; `PERFMON` and `SYS_PTRACE` |
 
 `--project-dir`, `--data-dir`, `--no-data`, `--network`, `--gui`, `--no-gui`, `--share` and
 `--no-share` override preset choices regardless of argument order. Repeated explicit settings use
@@ -52,6 +54,8 @@ keeps the host's sandbox setting. `--name NAME` retains the container after exit
 Docker removes it. An additional shell uses `docker exec --user "$(id --user --name)" -it NAME bash`.
 `--gui` requires WSLg and `DISPLAY`. `--perf` mounts the host PATH's perf binary; profiling also
 requires an appropriate capability (`--perfmon`, `--ptrace` or `--sys-admin`).
+`--preset performance` adds `--perf`, `--perfmon` and `--ptrace` to the defaults and fails when
+perf is missing from the host PATH.
 
 `--volume SPEC` and `--env SPEC` accept repeatable Docker values. Absolute bind sources must exist;
 named volumes use `NAME:/container/path`. Arguments after `--` pass directly to `docker run`

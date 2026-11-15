@@ -258,6 +258,21 @@ class LauncherTests(unittest.TestCase):
         self.assertIn(f'type=bind,source={perf},target=/usr/bin/perf,readonly', values(command, '--mount'))
         self.assertEqual(values(command, '--cap-add'), ['PERFMON'])
 
+    def test_performance_preset_adds_profiling_to_defaults(self):
+        (self.home / 'dev').mkdir()
+        perf = self.bin / 'perf'
+        perf.write_text('#!/bin/sh\nexit 0\n')
+        perf.chmod(0o755)
+
+        defaults = self.command('--preset', 'defaults')
+        performance = self.command('--preset', 'performance', '--perfmon')
+
+        self.assertEqual(values(performance, '--network'), values(defaults, '--network'))
+        self.assertEqual(values(performance, '--workdir'), values(defaults, '--workdir'))
+        self.assertIn(f'type=bind,source={perf},target=/usr/bin/perf,readonly', values(performance, '--mount'))
+        self.assertEqual(values(performance, '--cap-add'), ['SYS_PTRACE', 'PERFMON'])
+        self.assertEqual(values(defaults, '--cap-add'), [])
+
     def test_docker_escape_hatch_preserves_separate_arguments(self):
         result = self.run_launcher('--dry-run', '--', '--publish', '8888:8888',
                                    '--label', 'description=two words', dry=False)
